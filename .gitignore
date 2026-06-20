@@ -1,0 +1,29 @@
+# Binary outputs and build distribution folder
+dist/
+bgscan
+bgscan.exe
+bgscan-linux-*
+bgscan-android-*
+bgscan-macos-*
+bgscan-windows-*
+
+# Development temporary directories and workspace assets
+.tmp-*
+assets/xray/
+assets/dnstt-client/
+assets/slipstream-client/
+
+# Local configuration overrides and environment variables
+.env
+.env.local
+*.local
+
+# Go toolchain artifacts and testing
+*.test
+*.prof
+*.exe
+__debug_bin
+
+# Operating system metadata files
+.DS_Store
+Thumbs.db
