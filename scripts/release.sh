@@ -1,23 +1,24 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# bgscan-builder release generator
-# ==============================================================================
-#
+# bgscan-builder release generator (CI/CD ONLY)
+# ------------------------------------------------------------------------------
 # ⚠️ IMPORTANT:
-#   This script is designed ONLY for GitHub Actions (CI/CD).
-#   Do NOT run manually in production or local environments.
+# This script is designed ONLY for GitHub Actions (CI pipeline).
+# It is NOT intended for manual/local execution.
 #
 # PURPOSE:
 #   - Reads compiled binaries from ./dist
-#   - Generates SHA256 checksums
-#   - Builds GitHub-ready release notes (Markdown)
-#   - Normalizes platform + architecture naming
+#   - Generates SHA256 checksum manifest
+#   - Builds GitHub Release markdown (release_notes.md)
+#   - Normalizes platform + architecture names
 #
 # OUTPUT:
 #   ./release/
 #     ├── checksum.txt
 #     └── release_notes.md
 #
+# INPUT:
+#   $1 -> release tag (e.g. v1.0.0)
 # ==============================================================================
 
 set -euo pipefail
@@ -25,7 +26,7 @@ set -euo pipefail
 # ==============================================================================
 # INPUT VALIDATION
 # ==============================================================================
-if [ -z "${1:-}" ]; then
+if [[ -z "${1:-}" ]]; then
   echo "Usage: $0 <tag_version>"
   exit 1
 fi
@@ -48,13 +49,13 @@ mkdir -p "$RELEASE_DIR"
 # ==============================================================================
 log() {
   echo
-  echo "===================================================="
+  echo "============================================================"
   echo "$*"
-  echo "===================================================="
+  echo "============================================================"
 }
 
 # ==============================================================================
-# PLATFORM / ARCH MAPPING (SOURCE OF TRUTH)
+# PLATFORM + ARCH DISPLAY MAPS
 # ==============================================================================
 declare -A OS_MAP=(
   ["linux"]="🐧 Linux"
@@ -64,49 +65,47 @@ declare -A OS_MAP=(
 )
 
 declare -A ARCH_MAP=(
-  # Linux
-  ["linux-amd64"]="AMD64 / Intel x64"
+  ["linux-64"]="AMD64 / x64"
+  ["linux-32"]="x86 / 32-bit"
   ["linux-arm64"]="ARM64"
   ["linux-arm32-v7a"]="ARM32 (ARMv7)"
-  ["linux-386"]="x86 / 32-bit"
 
-  # Windows
-  ["windows-64"]="AMD64 / Intel x64"
+  ["windows-64"]="AMD64 / x64"
   ["windows-arm64"]="ARM64"
 
-  # Android
-  ["android-arm64-v8a"]="ARM64 / ARM64-v8a"
+  ["android-arm64-v8a"]="ARM64 (v8a)"
   ["android-armeabi-v7a"]="ARM32 (armeabi-v7a)"
   ["android-x86"]="x86 / 32-bit"
-  ["android-x86_64"]="AMD64 / Intel x64"
+  ["android-x86_64"]="AMD64 / x64"
 
-  # macOS
-  ["macos-arm64"]="ARM64 / Apple Silicon"
   ["macos-64"]="AMD64 / Intel x64"
+  ["macos-arm64"]="ARM64 / Apple Silicon"
 )
 
 # ==============================================================================
-# VALIDATION
+# VALIDATE DIST DIRECTORY
 # ==============================================================================
-log "Checking dist directory"
+log "Validating dist/ directory"
 
-if [ ! -d "$DIST_DIR" ] || [ -z "$(ls -A "$DIST_DIR")" ]; then
-  echo "ERROR: dist/ is empty"
+if [[ ! -d "$DIST_DIR" ]] || [[ -z "$(ls -A "$DIST_DIR" 2>/dev/null)" ]]; then
+  echo "ERROR: dist/ is empty or missing"
   exit 1
 fi
 
 # ==============================================================================
 # CHECKSUM GENERATION
 # ==============================================================================
-log "Generating checksum file"
+log "Generating SHA256 checksums"
 
 : >"$CHECKSUM_FILE"
+
 cd "$DIST_DIR"
 
 FILES=()
 
 for file in *; do
-  [ -f "$file" ] || continue
+  [[ -f "$file" ]] || continue
+
   sha256sum "$file" >>"$CHECKSUM_FILE"
   FILES+=("$file")
 done
@@ -121,9 +120,9 @@ log "Generating release notes"
 cat <<EOF >>"$NOTES_FILE"
 # 🚀 bgscan-builder Release $TAG_VERSION
 
-Automated multi-platform build artifacts generated via GitHub Actions.
+Automated multi-platform build artifacts generated via GitHub Actions CI.
 
-All binaries are raw executables (no compression).
+All binaries are **raw executables (no compression)**.
 
 ---
 
@@ -134,21 +133,24 @@ All binaries are raw executables (no compression).
 EOF
 
 # ==============================================================================
-# TABLE GENERATION
+# TABLE GENERATION (SMART PARSER FOR YOUR NAMING STYLE)
 # ==============================================================================
 for file in "${FILES[@]}"; do
 
-  # remove "bgscan-" prefix
-  key="${file#bgscan-}"
+  # normalize windows extension
+  clean_file="${file%.exe}"
 
+  # remove prefix
+  key="${clean_file#bgscan-builder-}"
+
+  # split OS / ARCH
   OS_KEY="${key%%-*}"
-  ARCH_KEY="$key"
+  ARCH_KEY="${key#*-}"
 
-  OS_NAME="${OS_MAP[$OS_KEY]}"
-  ARCH_NAME="${ARCH_MAP[$ARCH_KEY]}"
+  FULL_KEY="${OS_KEY}-${ARCH_KEY}"
 
-  [ -z "$OS_NAME" ] && OS_NAME="❓ Unknown"
-  [ -z "$ARCH_NAME" ] && ARCH_NAME="$ARCH_KEY"
+  OS_NAME="${OS_MAP[$OS_KEY]:-❓ Unknown}"
+  ARCH_NAME="${ARCH_MAP[$FULL_KEY]:-$ARCH_KEY}"
 
   LINK="[$file]($REPO_URL/releases/download/$TAG_VERSION/$file)"
 
@@ -157,7 +159,7 @@ for file in "${FILES[@]}"; do
 done
 
 # ==============================================================================
-# CHECKSUM TABLE (CLEAN FORMAT)
+# CHECKSUM TABLE
 # ==============================================================================
 cat <<EOF >>"$NOTES_FILE"
 
@@ -184,10 +186,12 @@ cat <<EOF >>"$NOTES_FILE"
 
 - Project: bgscan-builder
 - Version: $TAG_VERSION
-- Pipeline: GitHub Actions CI
+- Pipeline: GitHub Actions CI/CD
 EOF
 
 # ==============================================================================
-log "DONE"
-echo "Release generated in: $RELEASE_DIR"
+# DONE
+# ==============================================================================
+log "Release generation completed"
+echo "Output directory: $RELEASE_DIR"
 ls -lh "$RELEASE_DIR"
