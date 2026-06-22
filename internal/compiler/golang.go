@@ -1,8 +1,11 @@
 package compiler
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -67,4 +70,35 @@ func isGoVersionSupported(installedStr, minRequiredStr string) bool {
 	}
 
 	return true
+}
+
+// checkGoMod verifies that go.mod exists and matches the expected module name.
+func checkGoMod(srcDir, expectedModule string) error {
+	file, err := os.Open(filepath.Join(srcDir, "go.mod"))
+	if err != nil {
+		return fmt.Errorf("open go.mod: %w", err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		if !strings.HasPrefix(line, "module ") {
+			continue
+		}
+
+		module := strings.TrimSpace(strings.TrimPrefix(line, "module "))
+		if module != expectedModule {
+			return fmt.Errorf("found module %q, expected %q", module, expectedModule)
+		}
+
+		return nil
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("read go.mod: %w", err)
+	}
+
+	return fmt.Errorf("module declaration not found")
 }
