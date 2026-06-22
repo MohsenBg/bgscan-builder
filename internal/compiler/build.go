@@ -14,7 +14,7 @@ const MinGoVersion = "1.26.3"
 
 // Build compiles bgscan for the requested target platform and stages the
 // resulting binaries and configurations into the destination directory.
-func Build(target platform.Info, dest, ndkDir string) error {
+func Build(target platform.Info, dest, projectDir, ndkDir string) error {
 	version, err := checkGoVersion()
 	if err != nil {
 		return err
@@ -30,8 +30,15 @@ func Build(target platform.Info, dest, ndkDir string) error {
 	}
 	defer os.RemoveAll(workDir)
 
-	if err := CloneProject(workDir); err != nil {
-		return err
+	if projectDir == "" {
+		if err := CloneProject(workDir); err != nil {
+			return err
+		}
+	} else {
+		if err := checkGoMod(projectDir, "bgscan"); err != nil {
+			return err
+		}
+		workDir = projectDir
 	}
 
 	if err := PrepareProjectFiles(workDir, dest); err != nil {
@@ -125,7 +132,7 @@ func moveArtifact(src, dst string) error {
 		return nil
 	}
 
-	if err := copyFileRaw(src, dst); err != nil {
+	if err := copyFile(src, dst); err != nil {
 		return fmt.Errorf("move artifact: %w", err)
 	}
 
