@@ -33,10 +33,15 @@ func main() {
 	}
 
 	ctx := context.Background()
-
-	if err := BuildAllPlatforms(ctx, *cfg); err != nil {
-		log.Fatalf("Build Error: %v", err)
+	switch cfg.Mode {
+	case MODE_RELEASE:
+		if err := BuildAllPlatforms(ctx, *cfg); err != nil {
+			log.Fatalf("Build Error: %v", err)
+		}
+	case MODE_DEV:
+		RunSetupDev(ctx, *cfg)
 	}
+
 }
 
 // BuildAllPlatforms executes cross-compilation and downloads core dependencies
@@ -62,7 +67,7 @@ func BuildAllPlatforms(ctx context.Context, cfg Config) error {
 			return fmt.Errorf("failed to create directory for platform %s: %w", platformDirName, err)
 		}
 
-		if err := compiler.Build(platformInfo, targetDestPath, cfg.NDKDir); err != nil {
+		if err := compiler.Build(platformInfo, targetDestPath, cfg.ProjectDir, cfg.NDKDir); err != nil {
 			return fmt.Errorf("build aborted due to compilation failure on %s: %w", platformDirName, err)
 		}
 
@@ -82,5 +87,46 @@ func BuildAllPlatforms(ctx context.Context, cfg Config) error {
 	}
 
 	fmt.Println("\nExecution completed: All platform targets and dependencies deployed successfully.")
+	return nil
+}
+
+func RunSetupDev(ctx context.Context, cfg Config) error {
+	fmt.Println("------------------------------------------------------")
+	fmt.Println("DEV SETUP START")
+	fmt.Println("------------------------------------------------------")
+
+	// prepare local dev workspace
+	if err := compiler.PrepareDevProjectFiles(cfg.ProjectDir); err != nil {
+		return fmt.Errorf("dev prep failed: %w", err)
+	}
+
+	assetsDir := filepath.Join(cfg.ProjectDir, "assets")
+
+	// ensure assets folder exists
+	if err := os.MkdirAll(assetsDir, 0o755); err != nil {
+		return fmt.Errorf("create assets dir: %w", err)
+	}
+
+	fmt.Println("Downloading dependencies...")
+
+	// download xray
+	if err := processXray(ctx, platform.Detect(), cfg.XrayVersion, assetsDir); err != nil {
+		return fmt.Errorf("xray setup failed: %w", err)
+	}
+
+	// download dnstt
+	if err := processDNSTT(ctx, platform.Detect(), cfg.DepVersion, assetsDir); err != nil {
+		return fmt.Errorf("dnstt setup failed: %w", err)
+	}
+
+	// download slipstream
+	if err := processSlipstream(ctx, platform.Detect(), cfg.DepVersion, assetsDir); err != nil {
+		return fmt.Errorf("slipstream setup failed: %w", err)
+	}
+
+	fmt.Println("------------------------------------------------------")
+	fmt.Println("DEV SETUP DONE")
+	fmt.Println("------------------------------------------------------")
+
 	return nil
 }
