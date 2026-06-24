@@ -9,10 +9,15 @@ import (
 	"bgscan-builder/internal/platform"
 )
 
-const MODE_DEV = "setup-dev"
-const MODE_RELEASE = "release"
+const (
+	ModeDev     = "setup-dev"
+	ModeRelease = "release"
 
-// Config aggregates the validated configuration states required to run
+	defaultDepVersion  = "v1.0"
+	defaultXrayVersion = "v26.3.27"
+)
+
+// Config aggregates the validated configuration state required to run
 // the multi-architecture builder routines.
 type Config struct {
 	Mode        string
@@ -28,28 +33,55 @@ type Config struct {
 // context, delegating work to subcommand parsers.
 func ParseCLI() (*Config, error) {
 	if len(os.Args) < 2 {
-		return nil, fmt.Errorf("missing subcommand (setup-dev | release)")
+		printUsage()
+		return nil, fmt.Errorf("missing subcommand (%s | %s)", ModeDev, ModeRelease)
 	}
 
 	switch os.Args[1] {
-	case MODE_DEV:
+	case "-h", "--help", "help":
+		printUsage()
+		os.Exit(0)
+	case ModeDev:
 		return parseSetupDev()
-	case MODE_RELEASE:
+	case ModeRelease:
 		return parseRelease()
 	default:
+		printUsage()
 		return nil, fmt.Errorf("unknown subcommand %q", os.Args[1])
 	}
+
+	return nil, nil // unreachable
+}
+
+// printUsage prints top-level usage information for the builder CLI.
+func printUsage() {
+	fmt.Fprint(os.Stderr, `bgscan-builder — multi-architecture build tool
+
+Usage:
+  bgscan-builder <subcommand> [flags]
+
+Subcommands:
+  setup-dev    Set up a local development build for the current platform
+  release      Build a formal multi-platform release
+
+Run 'bgscan-builder <subcommand> -h' for subcommand-specific flags.
+`)
 }
 
 // parseSetupDev sets up configuration parameters for the local development profile.
 func parseSetupDev() (*Config, error) {
-	fs := flag.NewFlagSet(MODE_DEV, flag.ExitOnError)
+	fs := flag.NewFlagSet(ModeDev, flag.ExitOnError)
+	fs.Usage = func() {
+		fmt.Fprint(os.Stderr, `Usage: bgscan-builder setup-dev -project-dir <path>
 
-	projectDir := fs.String(
-		"project-dir",
-		"",
-		"Path to the bgscan project",
-	)
+Sets up a local development build for the currently detected platform.
+
+Flags:
+`)
+		fs.PrintDefaults()
+	}
+
+	projectDir := fs.String("project-dir", "", "Path to the bgscan project")
 
 	if err := fs.Parse(os.Args[2:]); err != nil {
 		return nil, err
@@ -60,57 +92,44 @@ func parseSetupDev() (*Config, error) {
 	}
 
 	cfg := &Config{
-		Mode:        MODE_DEV,
+		Mode:        ModeDev,
 		Platforms:   []platform.Info{platform.Detect()},
 		ProjectDir:  *projectDir,
 		DestDir:     filepath.Join(*projectDir, "dist"),
-		DepVersion:  "v1.0",
-		XrayVersion: "v26.3.27",
+		DepVersion:  defaultDepVersion,
+		XrayVersion: defaultXrayVersion,
 	}
 
 	resolvePaths(cfg)
 	return cfg, nil
 }
 
-// parseRelease handles command flag structures for generating formal multi-platform software distribution units.
+// parseRelease handles command flag structures for generating formal
+// multi-platform software distribution units.
 func parseRelease() (*Config, error) {
-	fs := flag.NewFlagSet(MODE_RELEASE, flag.ExitOnError)
+	fs := flag.NewFlagSet(ModeRelease, flag.ExitOnError)
+	fs.Usage = func() {
+		fmt.Fprint(os.Stderr, `Usage: bgscan-builder release -os <target> -arch <target> [flags]
 
-	targetOS := fs.String(
-		"os",
-		"",
-		"Target operating system (linux, windows, macos, android, all)",
-	)
-	targetArch := fs.String(
-		"arch",
-		"",
-		"Target architecture (amd64, arm64, arm32, amd32, all)",
-	)
-	destDir := fs.String(
-		"dest",
-		"./dist",
-		"Release output directory",
-	)
-	projectDir := fs.String(
-		"project-dir",
-		"",
-		"Path to the bgscan project",
-	)
-	ndkDir := fs.String(
-		"ndk-dir",
-		"",
-		"Android NDK root directory",
-	)
-	depVersion := fs.String(
-		"dep-version",
-		"v1.0",
-		"Dependencies version tag",
-	)
-	xrayVersion := fs.String(
-		"xray-version",
-		"v26.3.27",
-		"Xray version tag",
-	)
+Builds release artifacts for one or more OS/architecture combinations.
+
+Examples:
+  bgscan-builder release -os linux -arch amd64
+  bgscan-builder release -os android -arch arm64 -ndk-dir /opt/android-ndk
+  bgscan-builder release -os all -arch all -dest ./out
+
+Flags:
+`)
+		fs.PrintDefaults()
+	}
+
+	targetOS := fs.String("os", "", "Target operating system (linux, windows, macos, android, all)")
+	targetArch := fs.String("arch", "", "Target architecture (amd64, arm64, arm32, amd32, all)")
+	destDir := fs.String("dest", "./dist", "Release output directory")
+	projectDir := fs.String("project-dir", "", "Path to the bgscan project")
+	ndkDir := fs.String("ndk-dir", "", "Android NDK root directory")
+	depVersion := fs.String("dep-version", defaultDepVersion, "Dependencies version tag")
+	xrayVersion := fs.String("xray-version", defaultXrayVersion, "Xray version tag")
 
 	if err := fs.Parse(os.Args[2:]); err != nil {
 		return nil, err
@@ -124,7 +143,7 @@ func parseRelease() (*Config, error) {
 	}
 
 	cfg := &Config{
-		Mode:        "release",
+		Mode:        ModeRelease,
 		Platforms:   resolvePlatforms(*targetOS, *targetArch),
 		DestDir:     *destDir,
 		NDKDir:      *ndkDir,
@@ -164,9 +183,7 @@ func resolvePlatforms(osName, archName string) []platform.Info {
 		return builds
 
 	case archName == "all":
-		return platform.GetPlatformSpecificArch(
-			platform.ParseOS(osName),
-		)
+		return platform.GetPlatformSpecificArch(platform.ParseOS(osName))
 
 	default:
 		return []platform.Info{
@@ -178,7 +195,8 @@ func resolvePlatforms(osName, archName string) []platform.Info {
 	}
 }
 
-// requiresAndroidNDK scans requested parameters to see if an Android CGO chain lookup sequence is requested.
+// requiresAndroidNDK scans requested platforms to see if an Android CGO
+// toolchain lookup is required.
 func requiresAndroidNDK(platforms []platform.Info) bool {
 	for _, p := range platforms {
 		if p.OS == platform.Android {
@@ -188,7 +206,8 @@ func requiresAndroidNDK(platforms []platform.Info) bool {
 	return false
 }
 
-// resolvePaths ensures internal destination paths parse correctly into fully qualified absolute file-system directories.
+// resolvePaths ensures internal destination paths resolve to fully
+// qualified absolute file-system directories.
 func resolvePaths(cfg *Config) {
 	if abs, err := filepath.Abs(cfg.DestDir); err == nil {
 		cfg.DestDir = abs
