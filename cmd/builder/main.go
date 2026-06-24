@@ -34,11 +34,11 @@ func main() {
 
 	ctx := context.Background()
 	switch cfg.Mode {
-	case MODE_RELEASE:
+	case ModeRelease:
 		if err := BuildAllPlatforms(ctx, *cfg); err != nil {
 			log.Fatalf("Build Error: %v", err)
 		}
-	case MODE_DEV:
+	case ModeDev:
 		RunSetupDev(ctx, *cfg)
 	}
 
