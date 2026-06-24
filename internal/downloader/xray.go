@@ -19,6 +19,12 @@ func DownloadXray(
 	destDir string,
 	version string,
 ) (string, error) {
+
+	// xray don't have build for android arm32-va7 amd amd32 so switch to linux build
+	if platform.Android == info.OS && (platform.ARM32 == info.Arch || platform.AMD32 == info.Arch) {
+		info.OS = platform.Linux
+	}
+
 	binaryURL, err := resolveAsset(ctx, info, xrayRepo, "Xray", version)
 	if err != nil {
 		return "", err
@@ -80,4 +86,3 @@ func extractSHA256(ctx context.Context, url string) (string, error) {
 
 	return "", fmt.Errorf("sha256 not found in dgst")
 }
-
