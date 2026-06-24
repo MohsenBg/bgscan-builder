@@ -57,19 +57,24 @@ func processDNSTT(ctx context.Context, platformInfo platform.Info, depVersion, a
 		return fmt.Errorf("dnstt download failed: %w", err)
 	}
 
-	tarArchiver, err := archive.CreateArchiver(archive.ArchiveTAR)
+	ext := filepath.Ext(archivePath)
+	archiver, err := archive.CreateArchiver(archive.ArchiveTAR)
+	if ext == ".zip" {
+		archiver, err = archive.CreateArchiver(archive.ArchiveZIP)
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to initialize tar engine: %w", err)
 	}
 
-	_, err = tarArchiver.Decompress(archivePath, dnsttDir)
+	_, err = archiver.Decompress(archivePath, dnsttDir)
 	if err != nil {
 		return fmt.Errorf("dnstt extraction failed: %w", err)
 	}
 
 	_ = os.Remove(archivePath)
 
-	ext := ""
+	ext = ""
 	if platformInfo.OS == platform.Windows {
 		ext = ".exe"
 	}
@@ -94,19 +99,24 @@ func processSlipstream(ctx context.Context, platformInfo platform.Info, depVersi
 		return fmt.Errorf("slipstream download failed: %w", err)
 	}
 
-	tarArchiver, err := archive.CreateArchiver(archive.ArchiveTAR)
+	ext := filepath.Ext(archivePath)
+	archiver, err := archive.CreateArchiver(archive.ArchiveTAR)
+	if ext == ".zip" {
+		archiver, err = archive.CreateArchiver(archive.ArchiveZIP)
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to initialize tar engine: %w", err)
 	}
 
-	_, err = tarArchiver.Decompress(archivePath, slipDir)
+	_, err = archiver.Decompress(archivePath, slipDir)
 	if err != nil {
 		return fmt.Errorf("slipstream extraction failed: %w", err)
 	}
 
 	_ = os.Remove(archivePath)
 
-	ext := ""
+	ext = ""
 	if platformInfo.OS == platform.Windows {
 		ext = ".exe"
 	}
