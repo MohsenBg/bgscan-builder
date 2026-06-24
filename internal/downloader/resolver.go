@@ -59,11 +59,16 @@ func resolveAsset(
 }
 
 func matchTokens(text string, tokens []string) bool {
-	parts := strings.FieldsFunc(text, func(r rune) bool {
+	parts := strings.FieldsFunc(strings.ToLower(text), func(r rune) bool {
 		return r == '-' || r == '_' || r == '.' || r == '/'
 	})
 
 	for _, part := range parts {
+		// Explicitly skip legacy ARM v5 and v6 variants
+		if part == "v5" || part == "v6" || part == "armv5" || part == "armv6" {
+			return false
+		}
+
 		if slices.Contains(tokens, part) {
 			return true
 		}
