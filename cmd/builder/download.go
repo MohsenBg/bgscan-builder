@@ -22,7 +22,7 @@ func processXray(ctx context.Context, platform platform.Info, xrayVersion, asset
 		return fmt.Errorf("failed to prepare xrayDir folder: %w", err)
 	}
 
-	archivePath, err := downloader.DownloadXray(ctx, platform, xrayDir, xrayVersion)
+	archivePath, err := downloader.New().DownloadXray(ctx, platform, xrayDir, xrayVersion)
 	if err != nil {
 		return fmt.Errorf("xray download failed: %w", err)
 	}
@@ -52,7 +52,7 @@ func processSlipstream(ctx context.Context, platformInfo platform.Info, depVersi
 		return fmt.Errorf("failed to prepare slipstream folder: %w", err)
 	}
 
-	archivePath, err := downloader.DownloadSlipstream(ctx, platformInfo, slipDir, depVersion)
+	archivePath, err := downloader.New().DownloadSlipstream(ctx, platformInfo, slipDir, depVersion)
 	if err != nil {
 		return fmt.Errorf("slipstream download failed: %w", err)
 	}

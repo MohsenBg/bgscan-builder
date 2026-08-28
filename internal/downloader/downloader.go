@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"bgscan-builder/internal/platform"
 )
 
 const (
@@ -18,9 +20,55 @@ const (
 	timeout = 30 * time.Second
 )
 
+// client implements the Downloader interface.
+type client struct{}
+
+// DownloadXray resolves, downloads, and validates the Xray Core release asset matching
+// the given platform specification using its remote digest signature.
+func (c *client) DownloadXray(
+	ctx context.Context,
+	info platform.Info,
+	destDir string,
+	version string,
+) (string, error) {
+	// xray don't have build for android arm32-va7 amd amd32 so switch to linux build
+	if platform.Android == info.OS && (platform.ARM32 == info.Arch || platform.AMD32 == info.Arch) {
+		info.OS = platform.Linux
+	}
+
+	binaryURL, err := resolveAsset(ctx, info, xrayRepo, "Xray", version)
+	if err != nil {
+		return "", err
+	}
+
+	dgstURL := binaryURL + ".dgst"
+
+	binaryPath, err := c.DownloadFile(ctx, binaryURL, destDir)
+	if err != nil {
+		return "", err
+	}
+
+	if dgstURL != "" {
+		hash, err := extractSHA256(ctx, dgstURL)
+		if err != nil {
+			return "", err
+		}
+
+		if err := c.VerifyFileChecksum(binaryPath, hash); err != nil {
+			return "", err
+		}
+	}
+
+	return binaryPath, nil
+}
+
+// DownloadSlipstream fetches, verifies, and stages the Slipstream client module for the target platform architecture.
+func (c *client) DownloadSlipstream(ctx context.Context, info platform.Info, destDir string, version string) (string, error) {
+	return c.resolveAndDownloadDependency(ctx, info, "slipstream-client", destDir, version)
+}
+
 // DownloadFile downloads a file from a URL into a target path or target directory.
-// It writes to a temporary file first, moves it atomically, and returns the final saved path.
-func DownloadFile(ctx context.Context, urlStr, dest string) (string, error) {
+func (c *client) DownloadFile(ctx context.Context, urlStr, dest string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -59,7 +107,7 @@ func DownloadFile(ctx context.Context, urlStr, dest string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("bad status: %s", resp.Status)
@@ -82,12 +130,12 @@ func DownloadFile(ctx context.Context, urlStr, dest string) (string, error) {
 }
 
 // VerifyFileChecksum checks the SHA256 hash of a file against an expected hex-encoded value.
-func VerifyFileChecksum(path, expectedHash string) error {
+func (c *client) VerifyFileChecksum(path, expectedHash string) error {
 	file, err := os.Open(path)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	h := sha256.New()
 	if _, err := io.Copy(h, file); err != nil {
@@ -100,6 +148,38 @@ func VerifyFileChecksum(path, expectedHash string) error {
 	}
 
 	return nil
+}
+
+func (c *client) resolveAndDownloadDependency(
+	ctx context.Context,
+	info platform.Info,
+	binaryName string,
+	destPath string,
+	version string,
+) (string, error) {
+	binaryURL, err := resolveAsset(ctx, info, dependencyRepo, binaryName, version)
+	if err != nil {
+		return "", err
+	}
+
+	cleanRepo := strings.Trim(dependencyRepo, "/")
+	checksumURL := fmt.Sprintf("https://github.com/%s/releases/download/%s/checksum.txt", cleanRepo, version)
+
+	finalBinaryPath, err := c.DownloadFile(ctx, binaryURL, destPath)
+	if err != nil {
+		return "", err
+	}
+
+	hash, err := extractChecksumFromFile(ctx, filepath.Base(binaryURL), checksumURL)
+	if err != nil {
+		return "", err
+	}
+
+	if err := c.VerifyFileChecksum(finalBinaryPath, hash); err != nil {
+		return "", err
+	}
+
+	return finalBinaryPath, nil
 }
 
 func getFilename(urlStr, dest string) (string, error) {

@@ -12,23 +12,26 @@ import (
 // MinGoVersion defines the minimum toolchain version required to execute builds.
 const MinGoVersion = "1.26.3"
 
+// compiler implements the Compiler interface.
+type compiler struct{}
+
 // Build compiles bgscan for the requested target platform and stages the
 // resulting binaries and configurations into the destination directory.
-func Build(target platform.Info, dest, projectDir, ndkDir string) error {
+func (c *compiler) Build(target platform.Info, dest, projectDir, ndkDir string) error {
 	version, err := checkGoVersion()
 	if err != nil {
 		return err
 	}
 
 	if !isGoVersionSupported(version, MinGoVersion) {
-		return fmt.Errorf("Go %s or newer is required", MinGoVersion)
+		return fmt.Errorf("go %s or newer is required", MinGoVersion)
 	}
 
 	workDir, err := os.MkdirTemp("", "bgscan-*")
 	if err != nil {
 		return fmt.Errorf("create temporary workspace: %w", err)
 	}
-	defer os.RemoveAll(workDir)
+	defer func() { _ = os.RemoveAll(workDir) }()
 
 	if projectDir == "" {
 		if err := CloneProject(workDir); err != nil {
@@ -41,11 +44,11 @@ func Build(target platform.Info, dest, projectDir, ndkDir string) error {
 		workDir = projectDir
 	}
 
-	if err := PrepareProjectFiles(workDir, dest); err != nil {
+	if err := c.PrepareProjectFiles(workDir, dest); err != nil {
 		return fmt.Errorf("prepare project files: %w", err)
 	}
 
-	if err := CopyAssets(workDir, dest); err != nil {
+	if err := c.CopyAssets(workDir, dest); err != nil {
 		return fmt.Errorf("copy assets: %w", err)
 	}
 

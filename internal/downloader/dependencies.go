@@ -7,50 +7,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"strings"
-
-	"bgscan-builder/internal/platform"
 )
 
 const dependencyRepo = "MohsenBg/dep-bgscan"
-
-// DownloadSlipstream fetches, verifies, and stages the Slipstream client module for the target platform architecture.
-func DownloadSlipstream(ctx context.Context, info platform.Info, destDir string, version string) (string, error) {
-	return resolveAndDownloadDependency(ctx, info, "slipstream-client", destDir, version)
-}
-
-func resolveAndDownloadDependency(
-	ctx context.Context,
-	info platform.Info,
-	binaryName string,
-	destPath string,
-	version string,
-) (string, error) {
-	binaryURL, err := resolveAsset(ctx, info, dependencyRepo, binaryName, version)
-	if err != nil {
-		return "", err
-	}
-
-	cleanRepo := strings.Trim(dependencyRepo, "/")
-	checksumURL := fmt.Sprintf("https://github.com/%s/releases/download/%s/checksum.txt", cleanRepo, version)
-
-	finalBinaryPath, err := DownloadFile(ctx, binaryURL, destPath)
-	if err != nil {
-		return "", err
-	}
-
-	hash, err := extractChecksumFromFile(ctx, filepath.Base(binaryURL), checksumURL)
-	if err != nil {
-		return "", err
-	}
-
-	if err := VerifyFileChecksum(finalBinaryPath, hash); err != nil {
-		return "", err
-	}
-
-	return finalBinaryPath, nil
-}
 
 func extractChecksumFromFile(ctx context.Context, filename, url string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -62,7 +22,7 @@ func extractChecksumFromFile(ctx context.Context, filename, url string) (string,
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("checksum fetch error: %s", resp.Status)
@@ -92,4 +52,3 @@ func extractChecksumFromFile(ctx context.Context, filename, url string) (string,
 
 	return "", fmt.Errorf("checksum not found for %s", filename)
 }
-

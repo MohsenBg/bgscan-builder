@@ -10,7 +10,7 @@ import (
 )
 
 // PrepareProjectFiles copies project configuration and metadata into a build workspace.
-func PrepareProjectFiles(srcProjectDir, destRootDir string) error {
+func (c *compiler) PrepareProjectFiles(srcProjectDir, destRootDir string) error {
 	if err := copyDefaultFiles(
 		filepath.Join(srcProjectDir, "ips"),
 		filepath.Join(destRootDir, "ips"),
@@ -23,7 +23,7 @@ func PrepareProjectFiles(srcProjectDir, destRootDir string) error {
 }
 
 // PrepareDevProjectFiles creates missing files from *.default templates.
-func PrepareDevProjectFiles(projectDir string) error {
+func (c *compiler) PrepareDevProjectFiles(projectDir string) error {
 	if err := copyDefaultFiles(
 		filepath.Join(projectDir, "ips"),
 		filepath.Join(projectDir, "ips"),
@@ -36,7 +36,7 @@ func PrepareDevProjectFiles(projectDir string) error {
 }
 
 // CopyAssets copies the assets directory into the destination workspace.
-func CopyAssets(srcProjectDir, destRootDir string) error {
+func (c *compiler) CopyAssets(srcProjectDir, destRootDir string) error {
 	srcAssets := filepath.Join(srcProjectDir, "assets")
 	destAssets := filepath.Join(destRootDir, "assets")
 
@@ -135,7 +135,7 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
@@ -145,9 +145,8 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	_, err = io.Copy(out, in)
 	return err
 }
-

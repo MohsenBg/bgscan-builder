@@ -39,7 +39,9 @@ func main() {
 			log.Fatalf("Build Error: %v", err)
 		}
 	case ModeDev:
-		RunSetupDev(ctx, *cfg)
+		if err := RunSetupDev(ctx, *cfg); err != nil {
+			log.Fatalf("Dev Setup Error: %v", err)
+		}
 	}
 
 }
@@ -67,7 +69,7 @@ func BuildAllPlatforms(ctx context.Context, cfg Config) error {
 			return fmt.Errorf("failed to create directory for platform %s: %w", platformDirName, err)
 		}
 
-		if err := compiler.Build(platformInfo, targetDestPath, cfg.ProjectDir, cfg.NDKDir); err != nil {
+		if err := compiler.New().Build(platformInfo, targetDestPath, cfg.ProjectDir, cfg.NDKDir); err != nil {
 			return fmt.Errorf("build aborted due to compilation failure on %s: %w", platformDirName, err)
 		}
 
@@ -92,7 +94,7 @@ func RunSetupDev(ctx context.Context, cfg Config) error {
 	fmt.Println("------------------------------------------------------")
 
 	// prepare local dev workspace
-	if err := compiler.PrepareDevProjectFiles(cfg.ProjectDir); err != nil {
+	if err := compiler.New().PrepareDevProjectFiles(cfg.ProjectDir); err != nil {
 		return fmt.Errorf("dev prep failed: %w", err)
 	}
 
