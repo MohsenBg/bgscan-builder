@@ -67,4 +67,3 @@ func GetAndroidCompilerPath(ndkDir string, arch string, apiLevel int) (string, e
 
 	return compilerPath, nil
 }
-

@@ -161,4 +161,3 @@ func GetAllArchForEveryOS() map[OS][]Arch {
 	}
 	return m
 }
-

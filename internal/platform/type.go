@@ -90,4 +90,3 @@ type Info struct {
 func (i Info) String() string {
 	return fmt.Sprintf("%s-%s", i.OS.String(), i.Arch.String())
 }
-
