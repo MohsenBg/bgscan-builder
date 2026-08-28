@@ -48,10 +48,10 @@ func (t *TarArchiver) createTar(source, targetPath string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	tw := tar.NewWriter(file)
-	defer tw.Close()
+	defer func() { _ = tw.Close() }()
 
 	return filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -83,7 +83,7 @@ func (t *TarArchiver) createTar(source, targetPath string) error {
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 
 		_, err = io.Copy(tw, f)
 		return err
@@ -97,7 +97,7 @@ func (t *TarArchiver) Decompress(sourceTar string, targetDir string) (string, er
 	if err != nil {
 		return "", fmt.Errorf("failed to open tar file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create target directory: %w", err)
@@ -113,7 +113,7 @@ func (t *TarArchiver) Decompress(sourceTar string, targetDir string) (string, er
 		if err != nil {
 			return "", fmt.Errorf("failed to initialize gzip reader wrapper: %w", err)
 		}
-		defer gzReader.Close()
+		defer func() { _ = gzReader.Close() }()
 		tarReader = gzReader
 	}
 
@@ -153,10 +153,10 @@ func (t *TarArchiver) Decompress(sourceTar string, targetDir string) (string, er
 			}
 
 			if _, err := io.Copy(outFile, tr); err != nil {
-				outFile.Close()
+				_ = outFile.Close()
 				return "", fmt.Errorf("failed to stream untar tracking info contents: %w", err)
 			}
-			outFile.Close()
+			_ = outFile.Close()
 		}
 	}
 

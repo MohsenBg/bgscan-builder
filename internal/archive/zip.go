@@ -49,10 +49,10 @@ func (z *ZipCompressor) createZip(source, targetPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create zip file: %w", err)
 	}
-	defer zipFile.Close()
+	defer func() { _ = zipFile.Close() }()
 
 	archive := zip.NewWriter(zipFile)
-	defer archive.Close()
+	defer func() { _ = archive.Close() }()
 
 	return filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -92,7 +92,7 @@ func (z *ZipCompressor) createZip(source, targetPath string) error {
 		if err != nil {
 			return err
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		_, err = io.Copy(writer, file)
 		return err
@@ -106,7 +106,7 @@ func (z *ZipCompressor) Decompress(sourceZip string, targetDir string) (string, 
 	if err != nil {
 		return "", fmt.Errorf("failed to open zip file: %w", err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create target directory: %w", err)
@@ -139,15 +139,15 @@ func (z *ZipCompressor) Decompress(sourceZip string, targetDir string) (string, 
 
 		rc, err := f.Open()
 		if err != nil {
-			outFile.Close()
+			_ = outFile.Close()
 			return "", err
 		}
 
 		_, err = io.Copy(outFile, rc)
 
 		// Clean up
-		outFile.Close()
-		rc.Close()
+		_ = outFile.Close()
+		_ = rc.Close()
 
 		if err != nil {
 			return "", err
