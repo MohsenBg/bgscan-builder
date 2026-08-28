@@ -15,11 +15,6 @@ import (
 
 const dependencyRepo = "MohsenBg/dep-bgscan"
 
-// DownloadDNSTT fetches, verifies, and stages the DNSTT client module for the target platform architecture.
-func DownloadDNSTT(ctx context.Context, info platform.Info, destDir string, version string) (string, error) {
-	return resolveAndDownloadDependency(ctx, info, "dnstt-client", destDir, version)
-}
-
 // DownloadSlipstream fetches, verifies, and stages the Slipstream client module for the target platform architecture.
 func DownloadSlipstream(ctx context.Context, info platform.Info, destDir string, version string) (string, error) {
 	return resolveAndDownloadDependency(ctx, info, "slipstream-client", destDir, version)

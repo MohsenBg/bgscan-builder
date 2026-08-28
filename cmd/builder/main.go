@@ -77,11 +77,7 @@ func BuildAllPlatforms(ctx context.Context, cfg Config) error {
 			return fmt.Errorf("failed fetching Xray for platform %s: %w", platformDirName, err)
 		}
 
-		if err := processDNSTT(ctx, platformInfo, cfg.DepVersion, destAssetsDir); err != nil {
-			return fmt.Errorf("failed fetching DNSTT for platform %s: %w", platformDirName, err)
-		}
-
-		if err := processSlipstream(ctx, platformInfo, cfg.DepVersion, destAssetsDir); err != nil {
+		if err := processSlipstream(ctx, platformInfo, cfg.XrayVersion, destAssetsDir); err != nil {
 			return fmt.Errorf("failed fetching Slipstream for platform %s: %w", platformDirName, err)
 		}
 	}
@@ -114,13 +110,8 @@ func RunSetupDev(ctx context.Context, cfg Config) error {
 		return fmt.Errorf("xray setup failed: %w", err)
 	}
 
-	// download dnstt
-	if err := processDNSTT(ctx, platform.Detect(), cfg.DepVersion, assetsDir); err != nil {
-		return fmt.Errorf("dnstt setup failed: %w", err)
-	}
-
 	// download slipstream
-	if err := processSlipstream(ctx, platform.Detect(), cfg.DepVersion, assetsDir); err != nil {
+	if err := processSlipstream(ctx, platform.Detect(), cfg.XrayVersion, assetsDir); err != nil {
 		return fmt.Errorf("slipstream setup failed: %w", err)
 	}
 

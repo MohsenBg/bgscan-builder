@@ -42,48 +42,6 @@ func processXray(ctx context.Context, platform platform.Info, xrayVersion, asset
 	return nil
 }
 
-// processDNSTT handles fetching, verifying, unpacking, and normalizing the binary mapping
-// conventions for the DNSTT sidecar execution client.
-func processDNSTT(ctx context.Context, platformInfo platform.Info, depVersion, assetsDir string) error {
-	fmt.Printf("Downloading DNSTT (%s)...\n", depVersion)
-
-	dnsttDir := filepath.Join(assetsDir, "dnstt-client")
-	if err := os.MkdirAll(dnsttDir, 0755); err != nil {
-		return fmt.Errorf("failed to prepare dnstt folder: %w", err)
-	}
-
-	archivePath, err := downloader.DownloadDNSTT(ctx, platformInfo, dnsttDir, depVersion)
-	if err != nil {
-		return fmt.Errorf("dnstt download failed: %w", err)
-	}
-
-	ext := filepath.Ext(archivePath)
-	archiver, err := archive.CreateArchiver(archive.ArchiveTAR)
-	if ext == ".zip" {
-		archiver, err = archive.CreateArchiver(archive.ArchiveZIP)
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to initialize tar engine: %w", err)
-	}
-
-	_, err = archiver.Decompress(archivePath, dnsttDir)
-	if err != nil {
-		return fmt.Errorf("dnstt extraction failed: %w", err)
-	}
-
-	_ = os.Remove(archivePath)
-
-	ext = ""
-	if platformInfo.OS == platform.Windows {
-		ext = ".exe"
-	}
-
-	fixBinaryMapping(dnsttDir, "dnstt", "dnstt-client"+ext)
-	cleanDocumentation(dnsttDir)
-	return nil
-}
-
 // processSlipstream fetches, expands, and configures the Slipstream tunneling protocol client
 // asset workspace configurations natively.
 func processSlipstream(ctx context.Context, platformInfo platform.Info, depVersion, assetsDir string) error {

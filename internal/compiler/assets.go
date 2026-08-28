@@ -12,14 +12,6 @@ import (
 // PrepareProjectFiles copies project configuration and metadata into a build workspace.
 func PrepareProjectFiles(srcProjectDir, destRootDir string) error {
 	if err := copyDefaultFiles(
-		filepath.Join(srcProjectDir, "settings"),
-		filepath.Join(destRootDir, "settings"),
-		false,
-	); err != nil {
-		return fmt.Errorf("copy settings: %w", err)
-	}
-
-	if err := copyDefaultFiles(
 		filepath.Join(srcProjectDir, "ips"),
 		filepath.Join(destRootDir, "ips"),
 		false,
@@ -32,14 +24,6 @@ func PrepareProjectFiles(srcProjectDir, destRootDir string) error {
 
 // PrepareDevProjectFiles creates missing files from *.default templates.
 func PrepareDevProjectFiles(projectDir string) error {
-	if err := copyDefaultFiles(
-		filepath.Join(projectDir, "settings"),
-		filepath.Join(projectDir, "settings"),
-		true,
-	); err != nil {
-		return fmt.Errorf("copy settings: %w", err)
-	}
-
 	if err := copyDefaultFiles(
 		filepath.Join(projectDir, "ips"),
 		filepath.Join(projectDir, "ips"),

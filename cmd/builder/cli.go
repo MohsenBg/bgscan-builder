@@ -13,8 +13,7 @@ const (
 	ModeDev     = "setup-dev"
 	ModeRelease = "release"
 
-	defaultDepVersion  = "v1.0"
-	defaultXrayVersion = "v26.3.27"
+	defaultXrayVersion = "v26.7.28"
 )
 
 // Config aggregates the validated configuration state required to run
@@ -25,7 +24,6 @@ type Config struct {
 	ProjectDir  string
 	DestDir     string
 	NDKDir      string
-	DepVersion  string
 	XrayVersion string
 }
 
@@ -96,7 +94,6 @@ Flags:
 		Platforms:   []platform.Info{platform.Detect()},
 		ProjectDir:  *projectDir,
 		DestDir:     filepath.Join(*projectDir, "dist"),
-		DepVersion:  defaultDepVersion,
 		XrayVersion: defaultXrayVersion,
 	}
 
@@ -128,7 +125,6 @@ Flags:
 	destDir := fs.String("dest", "./dist", "Release output directory")
 	projectDir := fs.String("project-dir", "", "Path to the bgscan project")
 	ndkDir := fs.String("ndk-dir", "", "Android NDK root directory")
-	depVersion := fs.String("dep-version", defaultDepVersion, "Dependencies version tag")
 	xrayVersion := fs.String("xray-version", defaultXrayVersion, "Xray version tag")
 
 	if err := fs.Parse(os.Args[2:]); err != nil {
@@ -147,7 +143,6 @@ Flags:
 		Platforms:   resolvePlatforms(*targetOS, *targetArch),
 		DestDir:     *destDir,
 		NDKDir:      *ndkDir,
-		DepVersion:  *depVersion,
 		XrayVersion: *xrayVersion,
 		ProjectDir:  *projectDir,
 	}

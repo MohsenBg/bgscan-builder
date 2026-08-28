@@ -42,7 +42,7 @@ func Build(target platform.Info, dest, projectDir, ndkDir string) error {
 	}
 
 	if err := PrepareProjectFiles(workDir, dest); err != nil {
-		return fmt.Errorf("copy settings: %w", err)
+		return fmt.Errorf("prepare project files: %w", err)
 	}
 
 	if err := CopyAssets(workDir, dest); err != nil {
