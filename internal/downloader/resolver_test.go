@@ -75,20 +75,20 @@ func newAPI(t *testing.T, configure func(*apiFixture)) (*apiFixture, *httptest.S
 
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/repos/MohsenBg/bgscan/releases/"):
-			fmt.Fprintf(w, `{"tag_name": %q, "assets": [`, f.tag)
+			_, _ = fmt.Fprintf(w, `{"tag_name": %q, "assets": [`, f.tag)
 			for i, name := range f.assets {
 				if i > 0 {
-					fmt.Fprint(w, ",")
+					_, _ = fmt.Fprint(w, ",")
 				}
-				fmt.Fprintf(w, `{"name": %q, "browser_download_url": %q}`, name, srv.URL+"/assets/"+name)
+				_, _ = fmt.Fprintf(w, `{"name": %q, "browser_download_url": %q}`, name, srv.URL+"/assets/"+name)
 			}
-			fmt.Fprint(w, "]}")
+			_, _ = fmt.Fprint(w, "]}")
 		case strings.Contains(r.URL.Path, "checksum.txt"):
 			if !f.hasSum {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			fmt.Fprint(w, f.checksum)
+			_, _ = fmt.Fprint(w, f.checksum)
 		default:
 			http.NotFound(w, r)
 		}

@@ -87,14 +87,14 @@ func newFixture(t *testing.T, body []byte, configure func(*fixture)) *fixture {
 			f.mu.Lock()
 			f.apiHits = append(f.apiHits, r.URL.Path)
 			f.mu.Unlock()
-			fmt.Fprintf(w, `{"tag_name": %q, "assets": [`, f.tag)
+			_, _ = fmt.Fprintf(w, `{"tag_name": %q, "assets": [`, f.tag)
 			for i, name := range f.assets {
 				if i > 0 {
-					fmt.Fprint(w, ",")
+					_, _ = fmt.Fprint(w, ",")
 				}
-				fmt.Fprintf(w, `{"name": %q, "browser_download_url": %q}`, name, srv.URL+"/assets/"+name)
+				_, _ = fmt.Fprintf(w, `{"name": %q, "browser_download_url": %q}`, name, srv.URL+"/assets/"+name)
 			}
-			fmt.Fprint(w, "]}")
+			_, _ = fmt.Fprint(w, "]}")
 		case strings.HasPrefix(r.URL.Path, "/assets/"):
 			f.mu.Lock()
 			f.dlHits = append(f.dlHits, r.URL.Path)
@@ -125,7 +125,7 @@ func newFixture(t *testing.T, body []byte, configure func(*fixture)) *fixture {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			fmt.Fprint(w, f.checksum)
+			_, _ = fmt.Fprint(w, f.checksum)
 		default:
 			http.NotFound(w, r)
 		}
