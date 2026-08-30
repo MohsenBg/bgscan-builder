@@ -78,7 +78,7 @@ func TestArch_Tokens(t *testing.T) {
 		want []string
 	}{
 		{ARM64, []string{"arm64", "aarch64", "armv8"}},
-		{ARM32, []string{"armv7", "arm32"}},
+		{ARM32, []string{"armv7", "arm32", "armeabi", "v7a"}},
 		{AMD64, []string{"x86_64", "amd64", "64"}},
 		{AMD32, []string{"x86", "i386", "386", "32"}},
 	}
@@ -179,19 +179,6 @@ func TestGetPlatformSpecificArch(t *testing.T) {
 	for _, b := range androidBuilds {
 		if b.OS != Android {
 			t.Errorf("expected Android, got %s", b.OS)
-		}
-	}
-}
-
-func TestGetAllArchForEveryOS(t *testing.T) {
-	m := GetAllArchForEveryOS()
-	if len(m) == 0 {
-		t.Fatal("GetAllArchForEveryOS() returned empty map")
-	}
-
-	for os, arches := range m {
-		if len(arches) == 0 {
-			t.Errorf("OS %s has no architectures", os)
 		}
 	}
 }

@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Detect discovers and returns the host platform context info in a unified call.
+// Detect returns the host platform.
 func Detect() Info {
 	return Info{
 		OS:   detectOS(),
@@ -112,7 +112,7 @@ func (a Arch) Tokens() []string {
 	case ARM64:
 		return []string{"arm64", "aarch64", "armv8"}
 	case ARM32:
-		return []string{"armv7", "arm32"}
+		return []string{"armv7", "arm32", "armeabi", "v7a"}
 	case AMD64:
 		return []string{"x86_64", "amd64", "64"}
 	case AMD32:
@@ -150,14 +150,4 @@ func GetPlatformSpecificArch(targetOS OS) []Info {
 		}
 	}
 	return filtered
-}
-
-// GetAllArchForEveryOS aggregates and returns the internal compilation layout profile mapped directly by operating system keys.
-func GetAllArchForEveryOS() map[OS][]Arch {
-	m := make(map[OS][]Arch)
-	all := GetAllBuilds()
-	for _, build := range all {
-		m[build.OS] = append(m[build.OS], build.Arch)
-	}
-	return m
 }
