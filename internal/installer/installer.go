@@ -361,11 +361,11 @@ func readChoice(input io.Reader) int {
 	return choice
 }
 
-// isSupported restricts installs to the platforms the shell installer handled:
-// Linux, macOS, and Android (Termux).
+// isSupported restricts installs to platforms the release assets cover:
+// Linux, macOS, Android (Termux), and Windows.
 func isSupported(info platform.Info) bool {
 	switch info.OS {
-	case platform.Linux, platform.MacOS, platform.Android:
+	case platform.Linux, platform.MacOS, platform.Android, platform.Windows:
 	default:
 		return false
 	}

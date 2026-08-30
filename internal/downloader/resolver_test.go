@@ -120,6 +120,8 @@ func TestResolveReleaseAsset_PlatformMapping(t *testing.T) {
 		{platform.Info{OS: platform.Android, Arch: platform.ARM32}, "bgscan-android-armeabi-v7a.zip"},
 		{platform.Info{OS: platform.Android, Arch: platform.AMD64}, "bgscan-android-x86_64.zip"},
 		{platform.Info{OS: platform.Android, Arch: platform.AMD32}, "bgscan-android-x86.zip"},
+		{platform.Info{OS: platform.Windows, Arch: platform.AMD64}, "bgscan-windows-64.zip"},
+		{platform.Info{OS: platform.Windows, Arch: platform.ARM64}, "bgscan-windows-arm64.zip"},
 	}
 
 	f, srv := newAPI(t, nil)
