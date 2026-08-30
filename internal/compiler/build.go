@@ -1,29 +1,31 @@
 package compiler
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"bgscan-builder/internal/platform"
 )
 
 // MinGoVersion defines the minimum toolchain version required to execute builds.
-const MinGoVersion = "1.26.3"
+const MinGoVersion = "1.27.0"
 
 // compiler implements the Compiler interface.
 type compiler struct{}
 
 // Build compiles bgscan for the requested target platform and stages the
 // resulting binaries and configurations into the destination directory.
-func (c *compiler) Build(target platform.Info, dest, projectDir, ndkDir string) error {
-	version, err := checkGoVersion()
+func (c *compiler) Build(target platform.Info, dest, projectDir, ndkDir, version string) error {
+	goVersion, err := checkGoVersion()
 	if err != nil {
 		return err
 	}
 
-	if !isGoVersionSupported(version, MinGoVersion) {
+	if !isGoVersionSupported(goVersion, MinGoVersion) {
 		return fmt.Errorf("go %s or newer is required", MinGoVersion)
 	}
 
@@ -62,27 +64,32 @@ func (c *compiler) Build(target platform.Info, dest, projectDir, ndkDir string) 
 		outputName += ".exe"
 	}
 
-	fmt.Printf("Compiling target target: %s/%s\n", target.OS.String(), target.Arch.String())
-
+	tidyOut := new(bytes.Buffer)
 	tidyCmd := exec.Command("go", "mod", "tidy")
 	tidyCmd.Dir = workDir
 	tidyCmd.Env = env
-	tidyCmd.Stdout = os.Stdout
-	tidyCmd.Stderr = os.Stderr
+	tidyCmd.Stdout = tidyOut
+	tidyCmd.Stderr = tidyOut
 	if err := tidyCmd.Run(); err != nil {
-		return fmt.Errorf("go mod tidy failed: %w", err)
+		return fmt.Errorf("go mod tidy failed: %w\n%s", err, trimOutput(tidyOut))
 	}
 
-	buildCmd := exec.Command("go", "build", "-o", outputName, "./cmd/bgscan")
+	buildArgs := []string{"build", "-o", outputName}
+	if version != "" {
+		buildArgs = append(buildArgs, "-ldflags", fmt.Sprintf("-s -w -X main.Version=%s", version))
+	}
+	buildArgs = append(buildArgs, "./cmd/bgscan")
+	buildOut := new(bytes.Buffer)
+	buildCmd := exec.Command("go", buildArgs...)
 	buildCmd.Dir = workDir
 	buildCmd.Env = env
-	buildCmd.Stdout = os.Stdout
-	buildCmd.Stderr = os.Stderr
+	buildCmd.Stdout = buildOut
+	buildCmd.Stderr = buildOut
 	if err := buildCmd.Run(); err != nil {
-		return fmt.Errorf("go build failed: %w", err)
+		return fmt.Errorf("go build failed: %w\n%s", err, trimOutput(buildOut))
 	}
 
-	if err := os.MkdirAll(dest, 0755); err != nil {
+	if err := os.MkdirAll(dest, 0o755); err != nil {
 		return fmt.Errorf("create destination directory: %w", err)
 	}
 
@@ -94,6 +101,14 @@ func (c *compiler) Build(target platform.Info, dest, projectDir, ndkDir string) 
 	}
 
 	return nil
+}
+
+// trimOutput condenses captured subprocess output for inclusion in errors.
+func trimOutput(buf *bytes.Buffer) string {
+	if buf == nil {
+		return ""
+	}
+	return strings.TrimSpace(buf.String())
 }
 
 func buildEnvironment(target platform.Info, ndkDir string) ([]string, error) {
