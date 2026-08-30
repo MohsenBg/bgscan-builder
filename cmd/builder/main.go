@@ -3,13 +3,19 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"bgscan-builder/internal/compiler"
 	"bgscan-builder/internal/platform"
+	"bgscan-builder/internal/ui"
 )
+
+// Version is set at build time via -ldflags "-X main.Version=vx.x.x"
+var Version = "dev"
 
 var platformName = map[platform.Info]string{
 	{OS: platform.Linux, Arch: platform.ARM64}:   "bgscan-linux-arm64",
@@ -27,99 +33,121 @@ var platformName = map[platform.Info]string{
 }
 
 func main() {
+	u := ui.New(os.Stderr)
+
 	cfg, err := ParseCLI()
 	if err != nil {
-		log.Fatalf("CLI Error: %v", err)
+		u.Fail(err.Error())
+		os.Exit(1)
 	}
 
-	ctx := context.Background()
+	if cfg.Verbose {
+		u.SetLevel(slog.LevelDebug)
+	}
+
+	mode := "multi-platform release pipeline"
+	switch cfg.Mode {
+	case ModeDev:
+		mode = "local development setup"
+	case ModeInstall:
+		mode = "installer"
+	case ModeUpdate:
+		mode = "updater"
+	}
+	u.Brand(Version, mode)
+
+	// Ctrl+C cancels the running operation, allowing temporary files to be
+	// cleaned up before exit.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	var runErr error
 	switch cfg.Mode {
 	case ModeRelease:
-		if err := BuildAllPlatforms(ctx, *cfg); err != nil {
-			log.Fatalf("Build Error: %v", err)
-		}
+		runErr = BuildAllPlatforms(ctx, u, *cfg)
 	case ModeDev:
-		if err := RunSetupDev(ctx, *cfg); err != nil {
-			log.Fatalf("Dev Setup Error: %v", err)
-		}
+		runErr = RunSetupDev(ctx, u, *cfg)
+	case ModeInstall:
+		runErr = Install(ctx, u, *cfg)
+	case ModeUpdate:
+		runErr = Update(ctx, u, *cfg)
 	}
 
+	if runErr != nil {
+		if cfg.Mode != ModeInstall && cfg.Mode != ModeUpdate {
+			u.Fail(runErr.Error())
+		}
+		os.Exit(1)
+	}
+
+	// Flush the progress container after all output has been written.
 }
 
 // BuildAllPlatforms executes cross-compilation and downloads core dependencies
 // for all targeted architectures.
-func BuildAllPlatforms(ctx context.Context, cfg Config) error {
+func BuildAllPlatforms(ctx context.Context, u *ui.UI, cfg Config) error {
 	if len(cfg.Platforms) == 0 {
 		return fmt.Errorf("no target platforms specified in configuration")
 	}
 
+	u.Info("resolved build matrix", "platforms", len(cfg.Platforms), "dest", cfg.DestDir)
+
+	summary := make([]ui.Row, 0, len(cfg.Platforms))
+
 	for _, platformInfo := range cfg.Platforms {
-		platformDirName, exists := platformName[platformInfo]
-		if !exists {
+		dirName, ok := platformName[platformInfo]
+		if !ok {
 			return fmt.Errorf("unsupported orchestration mapping: %s", platformInfo.String())
 		}
 
-		targetDestPath := filepath.Join(cfg.DestDir, platformDirName)
+		u.Step(fmt.Sprintf("%s (%s)", dirName, platformInfo.String()))
 
-		fmt.Println("----------------------------------------------------------------------")
-		fmt.Printf("Target Environment: %s\n", platformDirName)
-		fmt.Println("----------------------------------------------------------------------")
-
-		if err := os.MkdirAll(targetDestPath, 0755); err != nil {
-			return fmt.Errorf("failed to create directory for platform %s: %w", platformDirName, err)
+		dest := filepath.Join(cfg.DestDir, dirName)
+		if err := os.MkdirAll(dest, 0o755); err != nil {
+			return fmt.Errorf("failed to create directory for platform %s: %w", dirName, err)
 		}
 
-		if err := compiler.New().Build(platformInfo, targetDestPath, cfg.ProjectDir, cfg.NDKDir); err != nil {
-			return fmt.Errorf("build aborted due to compilation failure on %s: %w", platformDirName, err)
+		if err := compiler.New().Build(platformInfo, dest, cfg.ProjectDir, cfg.NDKDir, cfg.Version); err != nil {
+			return fmt.Errorf("build aborted due to compilation failure on %s: %w", dirName, err)
+		}
+		u.Success(fmt.Sprintf("compiled %s", dirName))
+
+		destAssetsDir := filepath.Join(dest, "assets")
+
+		if err := processXray(ctx, u, platformInfo, cfg.XrayVersion, destAssetsDir); err != nil {
+			return fmt.Errorf("failed fetching Xray for platform %s: %w", dirName, err)
 		}
 
-		destAssetsDir := filepath.Join(targetDestPath, "assets")
-
-		if err := processXray(ctx, platformInfo, cfg.XrayVersion, destAssetsDir); err != nil {
-			return fmt.Errorf("failed fetching Xray for platform %s: %w", platformDirName, err)
+		if err := processSlipstream(ctx, u, platformInfo, destAssetsDir); err != nil {
+			return fmt.Errorf("failed fetching Slipstream for platform %s: %w", dirName, err)
 		}
 
-		if err := processSlipstream(ctx, platformInfo, cfg.XrayVersion, destAssetsDir); err != nil {
-			return fmt.Errorf("failed fetching Slipstream for platform %s: %w", platformDirName, err)
-		}
+		summary = append(summary, ui.Row{Target: dirName, Status: "done", OK: true})
 	}
 
-	fmt.Println("\nExecution completed: All platform targets and dependencies deployed successfully.")
+	u.Summary("summary", summary)
 	return nil
 }
 
-func RunSetupDev(ctx context.Context, cfg Config) error {
-	fmt.Println("------------------------------------------------------")
-	fmt.Println("DEV SETUP START")
-	fmt.Println("------------------------------------------------------")
-
-	// prepare local dev workspace
+func RunSetupDev(ctx context.Context, u *ui.UI, cfg Config) error {
+	u.Info("preparing dev workspace")
 	if err := compiler.New().PrepareDevProjectFiles(cfg.ProjectDir); err != nil {
 		return fmt.Errorf("dev prep failed: %w", err)
 	}
 
 	assetsDir := filepath.Join(cfg.ProjectDir, "assets")
-
-	// ensure assets folder exists
 	if err := os.MkdirAll(assetsDir, 0o755); err != nil {
 		return fmt.Errorf("create assets dir: %w", err)
 	}
 
-	fmt.Println("Downloading dependencies...")
-
-	// download xray
-	if err := processXray(ctx, platform.Detect(), cfg.XrayVersion, assetsDir); err != nil {
+	if err := processXray(ctx, u, platform.Detect(), cfg.XrayVersion, assetsDir); err != nil {
 		return fmt.Errorf("xray setup failed: %w", err)
 	}
 
-	// download slipstream
-	if err := processSlipstream(ctx, platform.Detect(), cfg.XrayVersion, assetsDir); err != nil {
+	if err := processSlipstream(ctx, u, platform.Detect(), assetsDir); err != nil {
 		return fmt.Errorf("slipstream setup failed: %w", err)
 	}
 
-	fmt.Println("------------------------------------------------------")
-	fmt.Println("DEV SETUP DONE")
-	fmt.Println("------------------------------------------------------")
-
+	u.Success(fmt.Sprintf("dev workspace ready at %s", cfg.ProjectDir))
 	return nil
 }

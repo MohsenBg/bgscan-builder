@@ -10,9 +10,12 @@ import (
 )
 
 const (
+	ModeInstall = "install"
+	ModeUpdate  = "update"
 	ModeDev     = "setup-dev"
 	ModeRelease = "release"
 
+	defaultInstallDir  = "./bgscan"
 	defaultXrayVersion = "v26.7.28"
 )
 
@@ -23,8 +26,11 @@ type Config struct {
 	Platforms   []platform.Info
 	ProjectDir  string
 	DestDir     string
+	InstallDir  string
 	NDKDir      string
+	Version     string
 	XrayVersion string
+	Verbose     bool
 }
 
 // ParseCLI evaluates incoming os.Args arguments to determine the execution
@@ -36,9 +42,16 @@ func ParseCLI() (*Config, error) {
 	}
 
 	switch os.Args[1] {
+	case "-v", "--version", "version":
+		fmt.Printf("bgscan-builder %s\n", Version)
+		os.Exit(0)
 	case "-h", "--help", "help":
 		printUsage()
 		os.Exit(0)
+	case ModeInstall:
+		return parseInstall()
+	case ModeUpdate:
+		return parseUpdate()
 	case ModeDev:
 		return parseSetupDev()
 	case ModeRelease:
@@ -59,10 +72,70 @@ Usage:
   bgscan-builder <subcommand> [flags]
 
 Subcommands:
+  install      Install the latest bgscan release into ./bgscan
+  update       Update bgscan in place, keeping your ips/assets files
   setup-dev    Set up a local development build for the current platform
   release      Build a formal multi-platform release
 
 Run 'bgscan-builder <subcommand> -h' for subcommand-specific flags.
+`)
+}
+
+// installFlags parses the shared install/update flag surface.
+func installFlags(mode, usage string) (*Config, error) {
+	fs := flag.NewFlagSet(mode, flag.ExitOnError)
+	fs.Usage = func() {
+		fmt.Fprint(os.Stderr, usage)
+		fs.PrintDefaults()
+	}
+
+	version := fs.String("version", "latest", "Version to install (e.g. v2.10.0; 'latest' resolves the newest release)")
+	installDir := fs.String("dir", defaultInstallDir, "Installation directory")
+	verbose := fs.Bool("verbose", false, "Enable debug logging")
+
+	if err := fs.Parse(os.Args[2:]); err != nil {
+		return nil, err
+	}
+
+	cfg := &Config{
+		Mode:       mode,
+		InstallDir: *installDir,
+		Version:    *version,
+		Verbose:    *verbose,
+	}
+	resolvePaths(cfg)
+	return cfg, nil
+}
+
+// parseInstall handles command flag structures for installing the latest
+// (or a pinned) bgscan release into the target directory.
+func parseInstall() (*Config, error) {
+	return installFlags(ModeInstall, `Usage: bgscan-builder install [flags]
+
+Installs the latest (or a specific version of) bgscan into ./bgscan.
+
+Examples:
+  bgscan-builder install
+  bgscan-builder install --version v2.10.0
+  bgscan-builder install --version latest --dir ./bgscan
+
+Flags:
+`)
+}
+
+// parseUpdate handles command flag structures for refreshing an existing
+// bgscan installation in place without removing user-added ips/assets files.
+func parseUpdate() (*Config, error) {
+	return installFlags(ModeUpdate, `Usage: bgscan-builder update [flags]
+
+Refreshes bgscan in place: the binary and release-provided ips/assets are
+updated, while files you added to ips/assets are preserved.
+
+Examples:
+  bgscan-builder update
+  bgscan-builder update --version v2.10.0 --dir ./bgscan
+
+Flags:
 `)
 }
 
@@ -80,6 +153,7 @@ Flags:
 	}
 
 	projectDir := fs.String("project-dir", "", "Path to the bgscan project")
+	verbose := fs.Bool("verbose", false, "Enable debug logging")
 
 	if err := fs.Parse(os.Args[2:]); err != nil {
 		return nil, err
@@ -95,6 +169,7 @@ Flags:
 		ProjectDir:  *projectDir,
 		DestDir:     filepath.Join(*projectDir, "dist"),
 		XrayVersion: defaultXrayVersion,
+		Verbose:     *verbose,
 	}
 
 	resolvePaths(cfg)
@@ -126,6 +201,8 @@ Flags:
 	projectDir := fs.String("project-dir", "", "Path to the bgscan project")
 	ndkDir := fs.String("ndk-dir", "", "Android NDK root directory")
 	xrayVersion := fs.String("xray-version", defaultXrayVersion, "Xray version tag")
+	version := fs.String("version", "dev", "Build version to embed in binary (e.g. v1.0.0)")
+	verbose := fs.Bool("verbose", false, "Enable debug logging")
 
 	if err := fs.Parse(os.Args[2:]); err != nil {
 		return nil, err
@@ -143,8 +220,10 @@ Flags:
 		Platforms:   resolvePlatforms(*targetOS, *targetArch),
 		DestDir:     *destDir,
 		NDKDir:      *ndkDir,
+		Version:     *version,
 		XrayVersion: *xrayVersion,
 		ProjectDir:  *projectDir,
+		Verbose:     *verbose,
 	}
 
 	if len(cfg.Platforms) == 0 {
@@ -159,7 +238,8 @@ Flags:
 	return cfg, nil
 }
 
-// resolvePlatforms maps string inputs down to formal, distinct architecture definitions.
+// resolvePlatforms maps a user-supplied os/arch pair (or "all") to concrete
+// platform targets.
 func resolvePlatforms(osName, archName string) []platform.Info {
 	allBuilds := platform.GetAllBuilds()
 
@@ -206,6 +286,12 @@ func requiresAndroidNDK(platforms []platform.Info) bool {
 func resolvePaths(cfg *Config) {
 	if abs, err := filepath.Abs(cfg.DestDir); err == nil {
 		cfg.DestDir = abs
+	}
+
+	if cfg.InstallDir != "" {
+		if abs, err := filepath.Abs(cfg.InstallDir); err == nil {
+			cfg.InstallDir = abs
+		}
 	}
 
 	if cfg.NDKDir != "" {

@@ -10,22 +10,30 @@ import (
 	"bgscan-builder/internal/archive"
 	"bgscan-builder/internal/downloader"
 	"bgscan-builder/internal/platform"
+	"bgscan-builder/internal/ui"
 )
+
+// newDownloader wires the shared UI progress sink into the downloader so all
+// downloads render into the same container as the log output.
+func newDownloader(u *ui.UI) downloader.Downloader {
+	return downloader.New(downloader.WithProgressSink(u.ProgressSink()))
+}
 
 // processXray handles the downloading, verification, unpacking, and metadata cleanup
 // of the Xray Core binary asset for the specified target architecture platform.
-func processXray(ctx context.Context, platform platform.Info, xrayVersion, assetsDir string) error {
-	fmt.Printf("Downloading Xray Core (%s)...\n", xrayVersion)
+func processXray(ctx context.Context, u *ui.UI, target platform.Info, xrayVersion, assetsDir string) error {
+	u.Info("fetching Xray Core", "version", xrayVersion, "target", target.String())
 
 	xrayDir := filepath.Join(assetsDir, "xray")
-	if err := os.MkdirAll(xrayDir, 0755); err != nil {
+	if err := os.MkdirAll(xrayDir, 0o755); err != nil {
 		return fmt.Errorf("failed to prepare xrayDir folder: %w", err)
 	}
 
-	archivePath, err := downloader.New().DownloadXray(ctx, platform, xrayDir, xrayVersion)
+	archivePath, err := newDownloader(u).DownloadXray(ctx, target, xrayDir, xrayVersion)
 	if err != nil {
 		return fmt.Errorf("xray download failed: %w", err)
 	}
+	u.Debug("xray bundle downloaded", "archive", archivePath)
 
 	zipArchiver, err := archive.CreateArchiver(archive.ArchiveZIP)
 	if err != nil {
@@ -39,23 +47,25 @@ func processXray(ctx context.Context, platform platform.Info, xrayVersion, asset
 
 	_ = os.Remove(archivePath)
 	cleanDocumentation(xrayDir)
+	u.Success("Xray Core staged")
 	return nil
 }
 
 // processSlipstream fetches, expands, and configures the Slipstream tunneling protocol client
 // asset workspace configurations natively.
-func processSlipstream(ctx context.Context, platformInfo platform.Info, depVersion, assetsDir string) error {
-	fmt.Printf("Downloading Slipstream (%s)...\n", depVersion)
+func processSlipstream(ctx context.Context, u *ui.UI, target platform.Info, assetsDir string) error {
+	u.Info("fetching Slipstream", "target", target.String())
 
 	slipDir := filepath.Join(assetsDir, "slipstream-client")
-	if err := os.MkdirAll(slipDir, 0755); err != nil {
+	if err := os.MkdirAll(slipDir, 0o755); err != nil {
 		return fmt.Errorf("failed to prepare slipstream folder: %w", err)
 	}
 
-	archivePath, err := downloader.New().DownloadSlipstream(ctx, platformInfo, slipDir, depVersion)
+	archivePath, err := newDownloader(u).DownloadSlipstream(ctx, target, slipDir)
 	if err != nil {
 		return fmt.Errorf("slipstream download failed: %w", err)
 	}
+	u.Debug("slipstream bundle downloaded", "archive", archivePath)
 
 	ext := filepath.Ext(archivePath)
 	archiver, err := archive.CreateArchiver(archive.ArchiveTAR)
@@ -75,12 +85,13 @@ func processSlipstream(ctx context.Context, platformInfo platform.Info, depVersi
 	_ = os.Remove(archivePath)
 
 	ext = ""
-	if platformInfo.OS == platform.Windows {
+	if target.OS == platform.Windows {
 		ext = ".exe"
 	}
 
 	fixBinaryMapping(slipDir, "slipstream", "slipstream-client"+ext)
 	cleanDocumentation(slipDir)
+	u.Success("Slipstream staged")
 	return nil
 }
 
