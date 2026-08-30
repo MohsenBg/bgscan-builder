@@ -5,7 +5,7 @@
 
 `bgscan-builder` installs, updates, and cross-compiles **bgscan** from a single
 Go binary. It detects the host platform, resolves the matching GitHub release
-asset, verifies its SHA-256 checksum, and downloads it with live progress —
+asset, verifies its SHA-256 checksum, and downloads it with live progress
 then stages the sidecar dependencies (Xray Core and Slipstream) alongside the
 build.
 
