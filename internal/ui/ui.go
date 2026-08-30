@@ -161,8 +161,11 @@ func (u *UI) Success(msg string) {
 	u.writeLine(fmt.Sprintf("%s %s", cGreen.Sprint("✓"), msg))
 }
 
-// Raw writes an unformatted line (no level prefix) to the presentation stream.
-func (u *UI) Raw(s string) { u.writeLine(s) }
+// Rawln writes an unformatted line (no level prefix) to the presentation stream.
+func (u *UI) Rawln(s string) { u.writeLine(s) }
+
+// Raw writes text to the presentation stream without a trailing newline.
+func (u *UI) Raw(s string) { u.write(s) }
 
 // Fail renders a generic fatal error marker and message.
 func (u *UI) Fail(msg string) {
@@ -193,6 +196,10 @@ func (u *UI) FailPanel(op, reason, note string) {
 // writeLine writes a single, complete log line.
 func (u *UI) writeLine(l string) {
 	_, _ = io.WriteString(u.w, l+"\n")
+}
+
+func (u *UI) write(l string) {
+	_, _ = io.WriteString(u.w, l)
 }
 
 // isTerminal reports whether w is a character device (a real terminal).

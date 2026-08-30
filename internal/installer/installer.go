@@ -191,13 +191,13 @@ func (in *Installer) detectAndResolve(ctx context.Context, target platform.Info,
 // installation occupies installDir.
 func (in *Installer) reconcileExistingInstall(installDir string, input io.Reader) error {
 	in.ui.Notice("Existing installation found")
-	in.ui.Raw("   " + installDir)
-	in.ui.Raw("")
+	in.ui.Rawln("   " + installDir)
+	in.ui.Rawln("")
 	in.ui.Muted("What would you like to do?")
-	in.ui.Raw("   [1]  Update installation (keeps your ips/assets)")
-	in.ui.Raw("   [2]  Clean install (removes existing installation)")
-	in.ui.Raw("   [3]  Back up existing installation and install new version")
-	in.ui.Raw("   [4]  Cancel")
+	in.ui.Rawln("   [1]  Update installation (keeps your ips/assets/settings)")
+	in.ui.Rawln("   [2]  Clean install (removes existing installation)")
+	in.ui.Rawln("   [3]  Back up existing installation and install new version")
+	in.ui.Rawln("   [4]  Cancel")
 	in.ui.Raw("   Choice: ")
 
 	switch readChoice(input) {
@@ -218,7 +218,7 @@ func (in *Installer) reconcileExistingInstall(installDir string, input io.Reader
 		backup := in.uniqueBackupName(installDir)
 		in.ui.Muted("   " + installDir)
 		in.ui.Muted("     ↓")
-		in.ui.Raw("   " + backup)
+		in.ui.Rawln("   " + backup)
 		// Atomic move of the complete previous installation.
 		if err := os.Rename(installDir, backup); err != nil {
 			return in.stageErr("Installation", "create backup", err)
@@ -293,19 +293,19 @@ func (in *Installer) fetchRelease(
 
 // successPanel renders the final confirmation block.
 func (in *Installer) successPanel(header, installDir string, target platform.Info) {
-	in.ui.Raw("")
+	in.ui.Rawln("")
 	in.ui.Divider()
 	in.ui.Success(header)
-	in.ui.Raw("")
+	in.ui.Rawln("")
 	in.ui.Row("Location", installDir)
 	in.ui.Row("Platform", target.String())
-	in.ui.Raw("")
+	in.ui.Rawln("")
 	in.ui.Muted("   Get started")
-	in.ui.Raw("     cd " + installDir)
-	in.ui.Raw("     ./" + in.Binary)
-	in.ui.Raw("")
+	in.ui.Rawln("     cd " + installDir)
+	in.ui.Rawln("     ./" + in.Binary)
+	in.ui.Rawln("")
 	in.ui.Divider()
-	in.ui.Raw("")
+	in.ui.Rawln("")
 }
 
 // uniqueBackupName builds a timestamped backup path (bgscan_bck_YYYYMMDD_HHMMSS)
