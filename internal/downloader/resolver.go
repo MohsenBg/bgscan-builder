@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -12,31 +13,43 @@ import (
 )
 
 type release struct {
-	Assets []struct {
+	TagName string `json:"tag_name"`
+	Assets  []struct {
+		Name               string `json:"name"`
 		BrowserDownloadURL string `json:"browser_download_url"`
 	} `json:"assets"`
 }
 
-// resolveAsset evaluates available assets in the target repository to pinpoint
-// the optimal binary artifact match for a specified system architecture.
-func resolveAsset(
+// ReleaseAsset identifies a resolved release asset together with the version
+// it was published under.
+type ReleaseAsset struct {
+	Version string // release tag, e.g. v2.9.1
+	Name    string // asset filename, e.g. bgscan-linux-64.zip
+	URL     string // browser download URL for the asset
+}
+
+// ResolveReleaseAsset evaluates available assets in the target repository to
+// pinpoint the optimal binary artifact match for a specified platform.
+// An empty or "latest" version resolves the latest release; any other value
+// resolves the matching tagged release.
+func (c *client) ResolveReleaseAsset(
 	ctx context.Context,
 	info platform.Info,
 	repoURL string,
 	binaryName string,
 	version string,
-) (string, error) {
-	assets, err := fetchAssets(ctx, repoURL, version)
+) (ReleaseAsset, error) {
+	links, tag, err := c.fetchAssets(ctx, repoURL, version)
 	if err != nil {
-		return "", err
+		return ReleaseAsset{}, err
 	}
 
 	osToken := strings.ToLower(info.OS.String())
 	archTokens := info.Arch.Tokens()
+	binName := strings.ToLower(binaryName)
 
-	for _, link := range assets {
+	for _, link := range links {
 		l := strings.ToLower(link)
-		binName := strings.ToLower(binaryName)
 		if !strings.Contains(l, binName) {
 			continue
 		}
@@ -51,11 +64,30 @@ func resolveAsset(
 		}
 
 		if matchTokens(l, archTokens) {
-			return link, nil
+			return ReleaseAsset{
+				Version: tag,
+				Name:    filepath.Base(link),
+				URL:     link,
+			}, nil
 		}
 	}
 
-	return "", fmt.Errorf("no matching asset for %s-%s", info.OS, info.Arch)
+	return ReleaseAsset{}, fmt.Errorf("no matching asset for %s-%s", info.OS, info.Arch)
+}
+
+// resolveAsset is a URL-only convenience wrapper for internal callers.
+func (c *client) resolveAsset(
+	ctx context.Context,
+	info platform.Info,
+	repoURL string,
+	binaryName string,
+	version string,
+) (string, error) {
+	asset, err := c.ResolveReleaseAsset(ctx, info, repoURL, binaryName, version)
+	if err != nil {
+		return "", err
+	}
+	return asset.URL, nil
 }
 
 func matchTokens(text string, tokens []string) bool {
@@ -77,28 +109,36 @@ func matchTokens(text string, tokens []string) bool {
 	return false
 }
 
-func fetchAssets(ctx context.Context, repoURL, version string) ([]string, error) {
+// fetchAssets returns the browser download URLs advertised by the release
+// together with the release tag name.
+func (c *client) fetchAssets(ctx context.Context, repoURL, version string) ([]string, string, error) {
 	cleanRepo := strings.Trim(repoURL, "/")
-	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/tags/%s", cleanRepo, version)
+
+	var url string
+	if version == "" || strings.EqualFold(version, "latest") {
+		url = fmt.Sprintf("%s/repos/%s/releases/latest", c.apiBase, cleanRepo)
+	} else {
+		url = fmt.Sprintf("%s/repos/%s/releases/tags/%s", c.apiBase, cleanRepo, version)
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := c.hc.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("api error: %s", resp.Status)
+		return nil, "", fmt.Errorf("api error: %s", resp.Status)
 	}
 
 	var r release
 	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	out := make([]string, 0, len(r.Assets))
@@ -109,5 +149,5 @@ func fetchAssets(ctx context.Context, repoURL, version string) ([]string, error)
 		out = append(out, a.BrowserDownloadURL)
 	}
 
-	return out, nil
+	return out, r.TagName, nil
 }

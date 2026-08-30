@@ -1,10 +1,9 @@
-// Package downloader implements the remote asset fetching, artifact resolution,
-// and validation routines for bgscan sidecar components.
 package downloader
 
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -12,20 +11,49 @@ import (
 
 const dependencyRepo = "MohsenBg/dep-bgscan"
 
-func extractChecksumFromFile(ctx context.Context, filename, url string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+// ErrChecksumUnavailable reports that no checksum could be resolved for a
+// release asset: the checksum file is missing or does not list the asset.
+var ErrChecksumUnavailable = errors.New("checksum unavailable for release asset")
+
+// FetchChecksum retrieves the SHA-256 checksum for the given asset filename
+// from the repository's release checksum.txt.
+func (c *client) FetchChecksum(ctx context.Context, repoURL, filename, version string) (string, error) {
+	cleanRepo := strings.Trim(repoURL, "/")
+
+	var checksumURL string
+	if version == "" || strings.EqualFold(version, "latest") {
+		checksumURL = fmt.Sprintf("%s/%s/releases/latest/download/checksum.txt", c.downloadBase, cleanRepo)
+	} else {
+		checksumURL = fmt.Sprintf("%s/%s/releases/download/%s/checksum.txt", c.downloadBase, cleanRepo, version)
+	}
+
+	hash, ok, err := c.scanChecksumFile(ctx, filename, checksumURL)
 	if err != nil {
 		return "", err
 	}
+	if !ok {
+		return "", fmt.Errorf("%w: %q", ErrChecksumUnavailable, filename)
+	}
+	return hash, nil
+}
 
-	resp, err := http.DefaultClient.Do(req)
+func (c *client) scanChecksumFile(ctx context.Context, filename, url string) (string, bool, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return "", err
+		return "", false, err
+	}
+
+	resp, err := c.hc.Do(req)
+	if err != nil {
+		return "", false, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("checksum fetch error: %s", resp.Status)
+		if resp.StatusCode == http.StatusNotFound {
+			return "", false, ErrChecksumUnavailable
+		}
+		return "", false, fmt.Errorf("checksum fetch error: %s", resp.Status)
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
@@ -40,15 +68,12 @@ func extractChecksumFromFile(ctx context.Context, filename, url string) (string,
 			continue
 		}
 
-		if parts[1] == filename {
-			return parts[0], nil
-		}
-		return parts[0], nil
+		return parts[0], true, nil
 	}
 
 	if err := scanner.Err(); err != nil {
-		return "", err
+		return "", false, err
 	}
 
-	return "", fmt.Errorf("checksum not found for %s", filename)
+	return "", false, nil
 }

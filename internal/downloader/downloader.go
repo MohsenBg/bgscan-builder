@@ -10,18 +10,19 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"bgscan-builder/internal/platform"
 )
 
-const (
-	passFix = "%s_%d"
-	timeout = 30 * time.Second
-)
+const duplicateNameFormat = "%s_%d"
 
 // client implements the Downloader interface.
-type client struct{}
+type client struct {
+	sink         ProgressSink
+	hc           *http.Client
+	apiBase      string
+	downloadBase string
+}
 
 // DownloadXray resolves, downloads, and validates the Xray Core release asset matching
 // the given platform specification using its remote digest signature.
@@ -31,12 +32,12 @@ func (c *client) DownloadXray(
 	destDir string,
 	version string,
 ) (string, error) {
-	// xray don't have build for android arm32-va7 amd amd32 so switch to linux build
+	// Xray releases no Android builds for 32-bit CPUs; use the Linux build.
 	if platform.Android == info.OS && (platform.ARM32 == info.Arch || platform.AMD32 == info.Arch) {
 		info.OS = platform.Linux
 	}
 
-	binaryURL, err := resolveAsset(ctx, info, xrayRepo, "Xray", version)
+	binaryURL, err := c.resolveAsset(ctx, info, xrayRepo, "Xray", version)
 	if err != nil {
 		return "", err
 	}
@@ -49,7 +50,7 @@ func (c *client) DownloadXray(
 	}
 
 	if dgstURL != "" {
-		hash, err := extractSHA256(ctx, dgstURL)
+		hash, err := c.extractSHA256(ctx, dgstURL)
 		if err != nil {
 			return "", err
 		}
@@ -63,15 +64,14 @@ func (c *client) DownloadXray(
 }
 
 // DownloadSlipstream fetches, verifies, and stages the Slipstream client module for the target platform architecture.
-func (c *client) DownloadSlipstream(ctx context.Context, info platform.Info, destDir string, version string) (string, error) {
-	return c.resolveAndDownloadDependency(ctx, info, "slipstream-client", destDir, version)
+func (c *client) DownloadSlipstream(ctx context.Context, info platform.Info, destDir string) (string, error) {
+	return c.resolveAndDownloadDependency(ctx, info, "slipstream-client", destDir, "latest")
 }
 
 // DownloadFile downloads a file from a URL into a target path or target directory.
+// It deliberately applies no timeout: slow links keep downloading until the
+// user cancels (Ctrl+C) or the transfer naturally ends.
 func (c *client) DownloadFile(ctx context.Context, urlStr, dest string) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
 	filename, err := getFilename(urlStr, dest)
 	if err != nil {
 		return "", err
@@ -83,7 +83,7 @@ func (c *client) DownloadFile(ctx context.Context, urlStr, dest string) (string,
 		dir = filepath.Dir(dest)
 	}
 
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
 
@@ -103,7 +103,7 @@ func (c *client) DownloadFile(ctx context.Context, urlStr, dest string) (string,
 		return "", err
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := c.hc.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -113,8 +113,32 @@ func (c *client) DownloadFile(ctx context.Context, urlStr, dest string) (string,
 		return "", fmt.Errorf("bad status: %s", resp.Status)
 	}
 
-	if _, err = io.Copy(tmpFile, resp.Body); err != nil {
+	// Wrap the response body with a progress bar when a sink is configured.
+	var reader io.Reader = resp.Body
+	var bar FileBar
+	if c.sink != nil {
+		bar = c.sink.AddFileBar(filename, resp.ContentLength)
+		proxy, proxyErr := bar.ProxyReader(resp.Body)
+		if proxyErr != nil {
+			return "", proxyErr
+		}
+		defer func() { _ = proxy.Close() }()
+		reader = proxy
+	}
+
+	n, err := io.Copy(tmpFile, reader)
+	if err != nil {
+		if bar != nil {
+			bar.Abort(true)
+		}
 		return "", err
+	}
+
+	if bar != nil {
+		// ContentLength may be -1 for unknown sizes; finalize the bar with
+		// the actual number of bytes written before waiting on it.
+		bar.SetTotal(n, true)
+		bar.Wait()
 	}
 
 	if err := tmpFile.Close(); err != nil {
@@ -157,20 +181,17 @@ func (c *client) resolveAndDownloadDependency(
 	destPath string,
 	version string,
 ) (string, error) {
-	binaryURL, err := resolveAsset(ctx, info, dependencyRepo, binaryName, version)
+	binaryURL, err := c.resolveAsset(ctx, info, dependencyRepo, binaryName, version)
 	if err != nil {
 		return "", err
 	}
-
-	cleanRepo := strings.Trim(dependencyRepo, "/")
-	checksumURL := fmt.Sprintf("https://github.com/%s/releases/download/%s/checksum.txt", cleanRepo, version)
 
 	finalBinaryPath, err := c.DownloadFile(ctx, binaryURL, destPath)
 	if err != nil {
 		return "", err
 	}
 
-	hash, err := extractChecksumFromFile(ctx, filepath.Base(binaryURL), checksumURL)
+	hash, err := c.FetchChecksum(ctx, dependencyRepo, filepath.Base(binaryURL), version)
 	if err != nil {
 		return "", err
 	}
@@ -235,7 +256,7 @@ func resolveFilenameConflict(dir, filename string) (string, error) {
 	base := strings.TrimSuffix(filename, ext)
 
 	for i := 1; ; i++ {
-		newName := fmt.Sprintf(passFix, base, i) + ext
+		newName := fmt.Sprintf(duplicateNameFormat, base, i) + ext
 		if _, exists := existing[newName]; !exists {
 			return newName, nil
 		}

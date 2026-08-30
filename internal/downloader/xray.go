@@ -10,13 +10,13 @@ import (
 
 const xrayRepo = "XTLS/Xray-core/"
 
-func extractSHA256(ctx context.Context, url string) (string, error) {
+func (c *client) extractSHA256(ctx context.Context, url string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := c.hc.Do(req)
 	if err != nil {
 		return "", err
 	}
