@@ -30,6 +30,7 @@
 set -euo pipefail
 
 TARGET="${1:-linux}"
+VERSION="${2:-dev}"
 
 ROOT_DIR="$PWD"
 DIST_DIR="$ROOT_DIR/dist"
@@ -63,7 +64,7 @@ build_go() {
   export GOARCH="$goarch"
   export CGO_ENABLED="$cgo"
 
-  go build -trimpath -ldflags="-s -w" \
+  go build -trimpath -ldflags="-s -w -X main.Version=$VERSION" \
     -o "$DIST_DIR/$name" \
     ./cmd/builder
 }
@@ -94,7 +95,7 @@ build_android() {
 
   log "BUILD => android/$arch -> $name"
 
-  go build -trimpath -ldflags="-s -w" \
+  go build -trimpath -ldflags="-s -w -X main.Version=$VERSION" \
     -o "$DIST_DIR/$name" \
     ./cmd/builder
 }
@@ -171,14 +172,14 @@ android)
 all)
   log "TARGET: ALL"
 
-  bash "$0" linux
-  bash "$0" macos
-  bash "$0" windows
-  bash "$0" android
+  bash "$0" linux "$VERSION"
+  bash "$0" macos "$VERSION"
+  bash "$0" windows "$VERSION"
+  bash "$0" android "$VERSION"
   ;;
 
 *)
-  echo "Usage: $0 {linux|windows|android|all}"
+  echo "Usage: $0 {linux|windows|android|all} [version]"
   exit 1
   ;;
 esac

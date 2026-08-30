@@ -66,7 +66,7 @@ jobs:
         run: chmod +x ./scripts/build.sh
 
       - name: Run build
-        run: ./scripts/build.sh "${{ matrix.target }}"
+        run: ./scripts/build.sh "${{ matrix.target }}" "${{ needs.context.outputs.tag }}"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
