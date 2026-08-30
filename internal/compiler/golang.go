@@ -11,7 +11,7 @@ import (
 )
 
 // checkGoVersion executes 'go version' to check if Go is installed,
-// returning a stripped version string (e.g. "1.26.3") or an error.
+// returning a stripped version string (e.g. "1.27.0") or an error.
 func checkGoVersion() (string, error) {
 	_, err := exec.LookPath("go")
 	if err != nil {
