@@ -13,7 +13,7 @@ import (
 // TarCompressor handles TAR archive creation and extraction.
 type TarArchiver struct{}
 
-// NewTarCompressor creates a new TarCompressor instance.
+// NewTarArchiver returns a TarArchiver instance.
 func NewTarArchiver() Archiver {
 	return &TarArchiver{}
 }
@@ -103,10 +103,9 @@ func (t *TarArchiver) Decompress(sourceTar string, targetDir string) (string, er
 		return "", fmt.Errorf("failed to create target directory: %w", err)
 	}
 
-	// Dynamic Reader Layer selection
 	var tarReader io.Reader = file
 
-	// If the filename indicates a gzip compression wrapper, pass through a gzip reader
+	// Transparently decode gzip-compressed tarballs based on the filename.
 	lowerName := strings.ToLower(sourceTar)
 	if strings.Contains(lowerName, ".tar.gz") || strings.Contains(lowerName, ".tgz") || strings.Contains(lowerName, ".gz") {
 		gzReader, err := gzip.NewReader(file)
@@ -122,7 +121,7 @@ func (t *TarArchiver) Decompress(sourceTar string, targetDir string) (string, er
 	for {
 		header, err := tr.Next()
 		if err == io.EOF {
-			break // done
+			break
 		}
 
 		if err != nil {

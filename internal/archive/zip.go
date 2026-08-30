@@ -99,8 +99,8 @@ func (z *ZipCompressor) createZip(source, targetPath string) error {
 	})
 }
 
-// UnCompress extracts a ZIP file (sourceZip) into targetDir.
-// It recreates all directories and files. Returns the output directory path.
+// Decompress extracts a ZIP file (sourceZip) into targetDir, recreating all
+// directories and files. Returns the output directory path.
 func (z *ZipCompressor) Decompress(sourceZip string, targetDir string) (string, error) {
 	r, err := zip.OpenReader(sourceZip)
 	if err != nil {
@@ -145,7 +145,6 @@ func (z *ZipCompressor) Decompress(sourceZip string, targetDir string) (string, 
 
 		_, err = io.Copy(outFile, rc)
 
-		// Clean up
 		_ = outFile.Close()
 		_ = rc.Close()
 

@@ -2,7 +2,7 @@ package archive
 
 import "fmt"
 
-// createArchiver initializes an archiver based on the given ArchiveFormat.
+// CreateArchiver initializes an archiver based on the given ArchiveFormat.
 func CreateArchiver(archiveFormat ArchiveFormat) (Archiver, error) {
 	switch archiveFormat {
 	case ArchiveZIP:
