@@ -33,9 +33,10 @@ func (c *compiler) Build(target platform.Info, dest, projectDir, ndkDir, version
 	if err != nil {
 		return fmt.Errorf("create temporary workspace: %w", err)
 	}
-	defer func() { _ = os.RemoveAll(workDir) }()
 
+	var cleanupTemp bool
 	if projectDir == "" {
+		cleanupTemp = true
 		if err := CloneProject(workDir); err != nil {
 			return err
 		}
@@ -44,6 +45,10 @@ func (c *compiler) Build(target platform.Info, dest, projectDir, ndkDir, version
 			return err
 		}
 		workDir = projectDir
+	}
+
+	if cleanupTemp {
+		defer func() { _ = os.RemoveAll(workDir) }()
 	}
 
 	if err := c.PrepareProjectFiles(workDir, dest); err != nil {
