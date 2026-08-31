@@ -18,11 +18,15 @@ func Detect() Info {
 
 func detectOS() OS {
 	switch runtime.GOOS {
-	case "linux", "android":
+	case "linux":
 		if isAndroid() {
 			return Android
 		}
 		return Linux
+
+	case "android":
+		return Android
+
 	case "darwin":
 		return MacOS
 	case "windows":
