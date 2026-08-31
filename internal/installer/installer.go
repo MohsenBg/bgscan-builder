@@ -364,6 +364,7 @@ func readChoice(input io.Reader) int {
 // isSupported restricts installs to platforms the release assets cover:
 // Linux, macOS, Android (Termux), and Windows.
 func isSupported(info platform.Info) bool {
+	fmt.Println(info.OS)
 	switch info.OS {
 	case platform.Linux, platform.MacOS, platform.Android, platform.Windows:
 	default:

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"bgscan-builder/internal/netutil"
 	"bgscan-builder/internal/platform"
 )
 
@@ -53,10 +54,12 @@ func WithDownloadBaseURL(base string) Option {
 	return func(c *client) { c.downloadBase = strings.TrimRight(base, "/") }
 }
 
-// New returns a new Downloader implementation.
+// New returns a new Downloader implementation. Unless overridden with
+// WithHTTPClient, all network operations share the netutil HTTP client,
+// which falls back to public DNS servers when the system resolver fails.
 func New(options ...Option) Downloader {
 	c := &client{
-		hc:           http.DefaultClient,
+		hc:           netutil.DefaultHTTPClient(),
 		apiBase:      defaultAPIBase,
 		downloadBase: defaultDownloadBase,
 	}

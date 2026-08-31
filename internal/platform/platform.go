@@ -18,7 +18,7 @@ func Detect() Info {
 
 func detectOS() OS {
 	switch runtime.GOOS {
-	case "linux":
+	case "linux", "android":
 		if isAndroid() {
 			return Android
 		}
