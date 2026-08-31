@@ -19,9 +19,9 @@ func checkGoVersion() (string, error) {
 	}
 
 	cmd := exec.Command("go", "version")
-	outputBytes, err := cmd.Output()
+	outputBytes, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("failed to execute 'go version': %w", err)
+		return "", fmt.Errorf("failed to execute 'go version': %w\n%s", err, string(outputBytes))
 	}
 
 	output := strings.TrimSpace(string(outputBytes))
