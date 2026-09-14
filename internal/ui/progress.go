@@ -10,12 +10,11 @@ import (
 )
 
 // progressSink adapts a progressbar to the downloader.ProgressSink interface
-// so every download renders as a live, self-updating progress bar on its own
-// dedicated line below the "Downloading …" title. A plain (non-terminal) UI
-// never creates bars.
+// so every download renders as a live, self-updating progress bar. A plain
+// (non-terminal) UI never creates bars.
 type progressSink struct{ w io.Writer }
 
-func (s *progressSink) AddFileBar(_ string, total int64) downloader.FileBar {
+func (s *progressSink) AddFileBar(total int64) downloader.FileBar {
 	bar := progressbar.NewOptions64(total,
 		progressbar.OptionSetWriter(s.w),
 		progressbar.OptionSetTheme(progressbar.Theme{
@@ -42,13 +41,13 @@ type fileBar struct {
 }
 
 // ProxyReader wraps the response body, advancing the bar as bytes arrive.
-func (b *fileBar) ProxyReader(r io.Reader) (io.ReadCloser, error) {
-	return &countingReader{bar: b.bar, src: r}, nil
+func (b *fileBar) ProxyReader(r io.Reader) io.ReadCloser {
+	return &countingReader{bar: b.bar, src: r}
 }
 
 // SetTotal normalizes the bar total on completion and renders the final line.
-func (b *fileBar) SetTotal(total int64, forceComplete bool) {
-	if !forceComplete || b.bar.IsFinished() {
+func (b *fileBar) SetTotal(total int64) {
+	if b.bar.IsFinished() {
 		return
 	}
 	if total >= 0 {
@@ -59,7 +58,7 @@ func (b *fileBar) SetTotal(total int64, forceComplete bool) {
 }
 
 // Abort finalizes the bar early on failure.
-func (b *fileBar) Abort(bool) { b.finish() }
+func (b *fileBar) Abort() { b.finish() }
 
 // finish renders the completed bar and moves to the next line so following
 // log output is not appended to the progress line.
@@ -67,9 +66,6 @@ func (b *fileBar) finish() {
 	_ = b.bar.Finish()
 	_, _ = io.WriteString(b.w, "\n")
 }
-
-// Wait is a no-op; the bar renders synchronously.
-func (b *fileBar) Wait() {}
 
 // countingReader proxies reads and feeds their size into the progress bar.
 type countingReader struct {

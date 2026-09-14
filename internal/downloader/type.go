@@ -16,7 +16,6 @@ const (
 
 // Downloader defines methods for fetching, verifying, and staging remote binary assets.
 type Downloader interface {
-	DownloadXray(ctx context.Context, info platform.Info, destDir string, version string) (string, error)
 	DownloadSlipstream(ctx context.Context, info platform.Info, destDir string) (string, error)
 	DownloadFile(ctx context.Context, urlStr, dest string) (string, error)
 	VerifyFileChecksum(path, expectedHash string) error

@@ -133,7 +133,7 @@ func (c *client) fetchAssets(ctx context.Context, repoURL, version string) ([]st
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, "", fmt.Errorf("api error: %s", resp.Status)
+		return nil, "", &statusError{Code: resp.StatusCode, Status: resp.Status}
 	}
 
 	var r release

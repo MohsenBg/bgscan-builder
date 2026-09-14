@@ -47,88 +47,21 @@ func TestVerifyFileChecksum_MissingFile(t *testing.T) {
 	}
 }
 
-func TestGetFilename_FromURL(t *testing.T) {
-	name, err := getFilename("https://example.com/path/to/file.zip", t.TempDir())
-	if err != nil {
-		t.Fatal(err)
+func TestFilenameFromURL(t *testing.T) {
+	tests := []struct {
+		url  string
+		want string
+	}{
+		{"https://example.com/path/to/file.zip", "file.zip"},
+		{"https://example.com/file.zip", "file.zip"},
+		{"https://example.com/", "file"},
+		{"https://example.com", "file"},
+		{"::not a url::", "file"},
 	}
-	if name != "file.zip" {
-		t.Errorf("got %q, want %q", name, "file.zip")
-	}
-}
-
-func TestGetFilename_FromDestPath(t *testing.T) {
-	name, err := getFilename("https://example.com/file.zip", filepath.Join(t.TempDir(), "output.bin"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if name != "output.bin" {
-		t.Errorf("got %q, want %q", name, "output.bin")
-	}
-}
-
-func TestGetFilename_DirDestination(t *testing.T) {
-	dir := t.TempDir()
-	name, err := getFilename("https://example.com/file.zip", dir+string(os.PathSeparator))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if name != "file.zip" {
-		t.Errorf("got %q, want %q", name, "file.zip")
-	}
-}
-
-func TestResolveFilenameConflict_NoConflict(t *testing.T) {
-	dir := t.TempDir()
-	name, err := resolveFilenameConflict(dir, "newfile.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if name != "newfile.txt" {
-		t.Errorf("got %q, want %q", name, "newfile.txt")
-	}
-}
-
-func TestResolveFilenameConflict_WithConflict(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "file.txt"), []byte(""), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	name, err := resolveFilenameConflict(dir, "file.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if name != "file_1.txt" {
-		t.Errorf("got %q, want %q", name, "file_1.txt")
-	}
-}
-
-func TestResolveFilenameConflict_MultipleConflicts(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "file.txt"), []byte(""), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "file_1.txt"), []byte(""), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	name, err := resolveFilenameConflict(dir, "file.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if name != "file_2.txt" {
-		t.Errorf("got %q, want %q", name, "file_2.txt")
-	}
-}
-
-func TestResolveFilenameConflict_EmptyDir(t *testing.T) {
-	name, err := resolveFilenameConflict("/nonexistent-dir", "file.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if name != "file.txt" {
-		t.Errorf("got %q, want %q", name, "file.txt")
+	for _, tt := range tests {
+		if got := filenameFromURL(tt.url); got != tt.want {
+			t.Errorf("filenameFromURL(%q) = %q, want %q", tt.url, got, tt.want)
+		}
 	}
 }
 
@@ -145,10 +78,10 @@ func TestMatchTokens(t *testing.T) {
 		tokens []string
 		want   bool
 	}{
-		{"xray-linux-amd64.zip", []string{"amd64"}, true},
-		{"xray-linux-arm64.zip", []string{"amd64"}, false},
-		{"xray-armv7-linux.zip", []string{"armv7", "arm32"}, true},
-		{"xray-armv5-linux.zip", []string{"armv5", "armv6"}, false},
+		{"tool-linux-amd64.zip", []string{"amd64"}, true},
+		{"tool-linux-arm64.zip", []string{"amd64"}, false},
+		{"tool-armv7-linux.zip", []string{"armv7", "arm32"}, true},
+		{"tool-armv5-linux.zip", []string{"armv5", "armv6"}, false},
 	}
 	for _, tt := range tests {
 		if got := matchTokens(tt.text, tt.tokens); got != tt.want {
