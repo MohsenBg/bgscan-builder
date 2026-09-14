@@ -119,8 +119,8 @@ func TestPrepareProjectFiles_CopiesIps(t *testing.T) {
 	}
 
 	c := &compiler{}
-	if err := c.PrepareProjectFiles(srcDir, destDir); err != nil {
-		t.Fatalf("PrepareProjectFiles: %v", err)
+	if err := c.prepareProjectFiles(srcDir, destDir); err != nil {
+		t.Fatalf("prepareProjectFiles: %v", err)
 	}
 
 	got, err := os.ReadFile(filepath.Join(destDir, "ips", "default.txt"))
@@ -147,8 +147,8 @@ func TestCopyAssets(t *testing.T) {
 	}
 
 	c := &compiler{}
-	if err := c.CopyAssets(srcDir, destDir); err != nil {
-		t.Fatalf("CopyAssets: %v", err)
+	if err := c.copyAssets(srcDir, destDir); err != nil {
+		t.Fatalf("copyAssets: %v", err)
 	}
 
 	got, err := os.ReadFile(filepath.Join(destDir, "assets", "file.txt"))
@@ -173,8 +173,8 @@ func TestCopyAssets_NoAssetsDir(t *testing.T) {
 	destDir := t.TempDir()
 
 	c := &compiler{}
-	if err := c.CopyAssets(srcDir, destDir); err != nil {
-		t.Fatalf("CopyAssets should not fail for missing assets dir: %v", err)
+	if err := c.copyAssets(srcDir, destDir); err != nil {
+		t.Fatalf("copyAssets should not fail for missing assets dir: %v", err)
 	}
 }
 

@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-// PrepareProjectFiles copies project configuration and metadata into a build workspace.
-func (c *compiler) PrepareProjectFiles(srcProjectDir, destRootDir string) error {
+// prepareProjectFiles copies project configuration and metadata into a build workspace.
+func (c *compiler) prepareProjectFiles(srcProjectDir, destRootDir string) error {
 	if err := copyDefaultFiles(
 		filepath.Join(srcProjectDir, "ips"),
 		filepath.Join(destRootDir, "ips"),
@@ -35,8 +35,8 @@ func (c *compiler) PrepareDevProjectFiles(projectDir string) error {
 	return nil
 }
 
-// CopyAssets copies the assets directory into the destination workspace.
-func (c *compiler) CopyAssets(srcProjectDir, destRootDir string) error {
+// copyAssets copies the assets directory into the destination workspace.
+func (c *compiler) copyAssets(srcProjectDir, destRootDir string) error {
 	srcAssets := filepath.Join(srcProjectDir, "assets")
 	destAssets := filepath.Join(destRootDir, "assets")
 

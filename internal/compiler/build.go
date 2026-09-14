@@ -29,33 +29,27 @@ func (c *compiler) Build(target platform.Info, dest, projectDir, ndkDir, version
 		return fmt.Errorf("go %s or newer is required", MinGoVersion)
 	}
 
-	workDir, err := os.MkdirTemp("", "bgscan-*")
-	if err != nil {
-		return fmt.Errorf("create temporary workspace: %w", err)
-	}
+	workDir := projectDir
+	if workDir == "" {
+		var err error
+		workDir, err = os.MkdirTemp("", "bgscan-*")
+		if err != nil {
+			return fmt.Errorf("create temporary workspace: %w", err)
+		}
+		defer func() { _ = os.RemoveAll(workDir) }()
 
-	var cleanupTemp bool
-	if projectDir == "" {
-		cleanupTemp = true
 		if err := CloneProject(workDir); err != nil {
 			return err
 		}
-	} else {
-		if err := checkGoMod(projectDir, "bgscan"); err != nil {
-			return err
-		}
-		workDir = projectDir
+	} else if err := checkGoMod(workDir, "bgscan"); err != nil {
+		return err
 	}
 
-	if cleanupTemp {
-		defer func() { _ = os.RemoveAll(workDir) }()
-	}
-
-	if err := c.PrepareProjectFiles(workDir, dest); err != nil {
+	if err := c.prepareProjectFiles(workDir, dest); err != nil {
 		return fmt.Errorf("prepare project files: %w", err)
 	}
 
-	if err := c.CopyAssets(workDir, dest); err != nil {
+	if err := c.copyAssets(workDir, dest); err != nil {
 		return fmt.Errorf("copy assets: %w", err)
 	}
 
