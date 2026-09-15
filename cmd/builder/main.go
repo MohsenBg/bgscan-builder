@@ -46,13 +46,8 @@ func main() {
 	}
 
 	mode := "multi-platform release pipeline"
-	switch cfg.Mode {
-	case ModeDev:
+	if cfg.Mode == ModeDev {
 		mode = "local development setup"
-	case ModeInstall:
-		mode = "installer"
-	case ModeUpdate:
-		mode = "updater"
 	}
 	u.Brand(Version, mode)
 
@@ -67,20 +62,12 @@ func main() {
 		runErr = BuildAllPlatforms(ctx, u, *cfg)
 	case ModeDev:
 		runErr = RunSetupDev(ctx, u, *cfg)
-	case ModeInstall:
-		runErr = Install(ctx, u, *cfg)
-	case ModeUpdate:
-		runErr = Update(ctx, u, *cfg)
 	}
 
 	if runErr != nil {
-		if cfg.Mode != ModeInstall && cfg.Mode != ModeUpdate {
-			u.Fail(runErr.Error())
-		}
+		u.Fail(runErr.Error())
 		os.Exit(1)
 	}
-
-	// Flush the progress container after all output has been written.
 }
 
 // BuildAllPlatforms executes cross-compilation and downloads core dependencies
@@ -100,7 +87,7 @@ func BuildAllPlatforms(ctx context.Context, u *ui.UI, cfg Config) error {
 			return fmt.Errorf("unsupported orchestration mapping: %s", platformInfo.String())
 		}
 
-		u.Step(fmt.Sprintf("%s (%s)", dirName, platformInfo.String()))
+		u.Section(fmt.Sprintf("%s (%s)", dirName, platformInfo.String()))
 
 		dest := filepath.Join(cfg.DestDir, dirName)
 		if err := os.MkdirAll(dest, 0o755); err != nil {
@@ -113,10 +100,6 @@ func BuildAllPlatforms(ctx context.Context, u *ui.UI, cfg Config) error {
 		u.Success(fmt.Sprintf("compiled %s", dirName))
 
 		destAssetsDir := filepath.Join(dest, "assets")
-
-		if err := processXray(ctx, u, platformInfo, cfg.XrayVersion, destAssetsDir); err != nil {
-			return fmt.Errorf("failed fetching Xray for platform %s: %w", dirName, err)
-		}
 
 		if err := processSlipstream(ctx, u, platformInfo, destAssetsDir); err != nil {
 			return fmt.Errorf("failed fetching Slipstream for platform %s: %w", dirName, err)
@@ -138,10 +121,6 @@ func RunSetupDev(ctx context.Context, u *ui.UI, cfg Config) error {
 	assetsDir := filepath.Join(cfg.ProjectDir, "assets")
 	if err := os.MkdirAll(assetsDir, 0o755); err != nil {
 		return fmt.Errorf("create assets dir: %w", err)
-	}
-
-	if err := processXray(ctx, u, platform.Detect(), cfg.XrayVersion, assetsDir); err != nil {
-		return fmt.Errorf("xray setup failed: %w", err)
 	}
 
 	if err := processSlipstream(ctx, u, platform.Detect(), assetsDir); err != nil {

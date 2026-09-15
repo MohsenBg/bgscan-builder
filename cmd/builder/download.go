@@ -19,38 +19,6 @@ func newDownloader(u *ui.UI) downloader.Downloader {
 	return downloader.New(downloader.WithProgressSink(u.ProgressSink()))
 }
 
-// processXray handles the downloading, verification, unpacking, and metadata cleanup
-// of the Xray Core binary asset for the specified target architecture platform.
-func processXray(ctx context.Context, u *ui.UI, target platform.Info, xrayVersion, assetsDir string) error {
-	u.Info("fetching Xray Core", "version", xrayVersion, "target", target.String())
-
-	xrayDir := filepath.Join(assetsDir, "xray")
-	if err := os.MkdirAll(xrayDir, 0o755); err != nil {
-		return fmt.Errorf("failed to prepare xrayDir folder: %w", err)
-	}
-
-	archivePath, err := newDownloader(u).DownloadXray(ctx, target, xrayDir, xrayVersion)
-	if err != nil {
-		return fmt.Errorf("xray download failed: %w", err)
-	}
-	u.Debug("xray bundle downloaded", "archive", archivePath)
-
-	zipArchiver, err := archive.CreateArchiver(archive.ArchiveZIP)
-	if err != nil {
-		return fmt.Errorf("failed to initialize zip engine: %w", err)
-	}
-
-	_, err = zipArchiver.Decompress(archivePath, xrayDir)
-	if err != nil {
-		return fmt.Errorf("xray extraction failed: %w", err)
-	}
-
-	_ = os.Remove(archivePath)
-	cleanDocumentation(xrayDir)
-	u.Success("Xray Core staged")
-	return nil
-}
-
 // processSlipstream fetches, expands, and configures the Slipstream tunneling protocol client
 // asset workspace configurations natively.
 func processSlipstream(ctx context.Context, u *ui.UI, target platform.Info, assetsDir string) error {
@@ -67,24 +35,14 @@ func processSlipstream(ctx context.Context, u *ui.UI, target platform.Info, asse
 	}
 	u.Debug("slipstream bundle downloaded", "archive", archivePath)
 
-	ext := filepath.Ext(archivePath)
-	archiver, err := archive.CreateArchiver(archive.ArchiveTAR)
-	if ext == ".zip" {
-		archiver, err = archive.CreateArchiver(archive.ArchiveZIP)
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to initialize tar engine: %w", err)
-	}
-
-	_, err = archiver.Decompress(archivePath, slipDir)
+	_, err = archive.Extract(archivePath, slipDir)
 	if err != nil {
 		return fmt.Errorf("slipstream extraction failed: %w", err)
 	}
 
 	_ = os.Remove(archivePath)
 
-	ext = ""
+	ext := ""
 	if target.OS == platform.Windows {
 		ext = ".exe"
 	}

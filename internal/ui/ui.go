@@ -86,9 +86,6 @@ func (u *UI) Section(title string) {
 	u.writeLine(fmt.Sprintf("%s %s", cCyan.Sprint("→"), cBold.Sprint(title)))
 }
 
-// Step is an alias for Section, kept for callers that use the older wording.
-func (u *UI) Step(title string) { u.Section(title) }
-
 // Row renders a dim label with a bold value in a fixed-width column.
 func (u *UI) Row(label, value string) {
 	u.writeLine(fmt.Sprintf("   %s%s", cDim.Sprintf("%-16s", label), cBold.Sprint(value)))
@@ -96,16 +93,6 @@ func (u *UI) Row(label, value string) {
 
 // Muted renders a dim, secondary information line.
 func (u *UI) Muted(msg string) { u.writeLine(cDim.Sprint(msg)) }
-
-// Notice renders a yellow warning line.
-func (u *UI) Notice(msg string) {
-	u.writeLine(fmt.Sprintf("%s %s", cYellow.Sprint("⚠"), msg))
-}
-
-// Divider prints a thin dim rule.
-func (u *UI) Divider() {
-	u.writeLine(cDim.Sprintf("  %s", strings.Repeat("─", 52)))
-}
 
 // Summary renders a terminal status table.
 func (u *UI) Summary(title string, rows []Row) {
@@ -161,36 +148,9 @@ func (u *UI) Success(msg string) {
 	u.writeLine(fmt.Sprintf("%s %s", cGreen.Sprint("✓"), msg))
 }
 
-// Rawln writes an unformatted line (no level prefix) to the presentation stream.
-func (u *UI) Rawln(s string) { u.writeLine(s) }
-
-// Raw writes text to the presentation stream without a trailing newline.
-func (u *UI) Raw(s string) { u.write(s) }
-
 // Fail renders a generic fatal error marker and message.
 func (u *UI) Fail(msg string) {
 	u.writeLine(fmt.Sprintf("%s %s", cRed.Sprint("✗"), msg))
-}
-
-// FailPanel renders a structured, scannable failure block that separates
-// what failed, why, and what it means for the user.
-func (u *UI) FailPanel(op, reason, note string) {
-	u.writeLine("")
-	u.Divider()
-	u.writeLine(fmt.Sprintf("%s %s", cRed.Sprint("✗"), cBold.Sprint("Installation failed")))
-	if op != "" {
-		u.writeLine("")
-		u.writeLine(fmt.Sprintf("   %s", cRed.Sprint(op)))
-	}
-	if reason != "" {
-		u.writeLine(fmt.Sprintf("   %s%s", cDim.Sprint("Reason: "), reason))
-	}
-	if note != "" {
-		u.writeLine("")
-		u.writeLine(fmt.Sprintf("   %s", note))
-	}
-	u.Divider()
-	u.writeLine("")
 }
 
 // writeLine writes a single, complete log line.

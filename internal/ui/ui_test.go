@@ -17,17 +17,17 @@ func TestNew_PlainMode(t *testing.T) {
 		t.Fatal("expected nil progress sink in plain mode")
 	}
 
-	u.Info("downloading xray", "version", "v1.0")
-	u.Success("xray staged")
+	u.Info("downloading slipstream", "target", "linux-amd64")
+	u.Success("slipstream staged")
 	u.Warn("retry", "attempt", 2)
 	u.Summary("summary", []Row{{Target: "linux-amd64", Status: "done", OK: true}})
 	u.Fail("boom")
 
 	out := buf.String()
 	for _, want := range []string{
-		"INFO   downloading xray",
-		"version=v1.0",
-		"✓ xray staged",
+		"INFO   downloading slipstream",
+		"target=linux-amd64",
+		"✓ slipstream staged",
 		"WARN   retry",
 		"attempt=2",
 		"SUMMARY",
@@ -46,7 +46,7 @@ func TestNew_BrandAndSection(t *testing.T) {
 	var buf bytes.Buffer
 	u := New(&buf)
 
-	u.Brand("v1.0.0", "installer")
+	u.Brand("v1.0.0", "release")
 	u.Section("System")
 	u.Row("OS", "linux")
 	u.Success("System ready")
@@ -54,7 +54,7 @@ func TestNew_BrandAndSection(t *testing.T) {
 	out := buf.String()
 	for _, want := range []string{
 		"██████╗",
-		"bgscan-builder · installer · v1.0.0",
+		"bgscan-builder · release · v1.0.0",
 		"→ System",
 		"OS",
 		"linux",

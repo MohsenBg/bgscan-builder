@@ -10,7 +10,7 @@ import (
 
 // consoleHandler renders slog records as compact, human-friendly lines:
 //
-//	INFO  downloading Xray Core  version=v26.7.28  target=linux-amd64
+//	INFO  downloading Slipstream  target=linux-amd64
 type consoleHandler struct {
 	w     io.Writer
 	level *slog.LevelVar
