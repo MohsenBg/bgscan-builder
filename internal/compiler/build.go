@@ -41,7 +41,7 @@ func (c *compiler) Build(target platform.Info, dest, projectDir, ndkDir, version
 		if err := CloneProject(workDir); err != nil {
 			return err
 		}
-	} else if err := checkGoMod(workDir, "bgscan"); err != nil {
+	} else if err := checkGoMod(workDir, "github.com/MohsenBg/bgscan", "bgscan"); err != nil {
 		return err
 	}
 
