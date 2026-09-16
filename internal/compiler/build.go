@@ -74,10 +74,16 @@ func (c *compiler) Build(target platform.Info, dest, projectDir, ndkDir, version
 	}
 
 	buildArgs := []string{"build", "-o", outputName}
-	if version != "" {
-		buildArgs = append(buildArgs, "-ldflags", fmt.Sprintf("-s -w -X main.Version=%s", version))
+	ldflags := "-s -w"
+	if target.OS == platform.Android {
+		ldflags += " -checklinkname=0"
 	}
+	if version != "" {
+		ldflags += fmt.Sprintf(" -X main.Version=%s", version)
+	}
+	buildArgs = append(buildArgs, "-ldflags", ldflags)
 	buildArgs = append(buildArgs, "./cmd/bgscan")
+
 	buildOut := new(bytes.Buffer)
 	buildCmd := exec.Command("go", buildArgs...)
 	buildCmd.Dir = workDir
