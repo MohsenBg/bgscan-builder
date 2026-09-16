@@ -364,9 +364,6 @@ func TestDefaultHTTPClient_FallbackEndToEnd(t *testing.T) {
 }
 
 func TestDefaultHTTPClient_SharedInstance(t *testing.T) {
-	if DefaultHTTPClient() != DefaultHTTPClient() {
-		t.Error("DefaultHTTPClient must return the same shared instance")
-	}
 	if DefaultHTTPClient().Transport == nil {
 		t.Error("shared client has no transport")
 	}

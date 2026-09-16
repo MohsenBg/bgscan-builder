@@ -158,10 +158,6 @@ func (u *UI) writeLine(l string) {
 	_, _ = io.WriteString(u.w, l+"\n")
 }
 
-func (u *UI) write(l string) {
-	_, _ = io.WriteString(u.w, l)
-}
-
 // isTerminal reports whether w is a character device (a real terminal).
 func isTerminal(w io.Writer) bool {
 	f, ok := w.(*os.File)
